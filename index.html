@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ドボン ローカルルール版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* base reset (formerly supplied by the artifact host) */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+/* Layout: one-screen card table — seats on top, deck + pile in the middle, your hand and the DOBON button at the bottom. Single committed look (indigo felt). */
+:root{
+  --felt:#1c2b4d; --felt-2:#26396a; --edge:#111a30;
+  --ink:#eef1f8; --muted:#a2b1cf; --line:rgba(226,232,248,.14);
+  --card:#fbf8f0; --card-ink:#1d2333; --card-red:#c3322a;
+  --amber:#f2b43c; --amber-ink:#2a1d04;
+  --dobon:#e2412f; --dobon-deep:#9e2216;
+  --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --cw:58px; --ch:84px;
+  color-scheme:dark;
+}
+@media (min-width:720px){ :root{ --cw:70px; --ch:101px; } }
+html,body{height:100%}
+body{
+  background:radial-gradient(120% 80% at 50% 45%, var(--felt-2), var(--felt) 60%, var(--edge));
+  background-color:var(--edge);
+  color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button:disabled{cursor:default;opacity:.4}
+
+/* ---------- Setup ---------- */
+#setup{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px;display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:56px;line-height:1;margin:0;letter-spacing:.04em}
+.brand h1 span{color:var(--dobon)}
+.brand p{margin:0 0 6px;color:var(--muted);font-size:13px;letter-spacing:.1em}
+.panel{display:flex;flex-direction:column;gap:10px}
+.panel h2{font-size:12px;letter-spacing:.18em;color:var(--muted);margin:0;font-weight:700}
+.prow{display:flex;gap:8px;align-items:center}
+.prow input{flex:1;min-width:0;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--ink);font:inherit}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.seg button{padding:8px 12px;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--amber);color:var(--amber-ink);font-weight:700}
+.seg.mode{align-self:stretch}
+.seg.mode button{flex:1;padding:11px 12px;font-size:14px}
+.hint{margin:0;font-size:12.5px;color:var(--muted)}
+.x{width:34px;height:34px;border-radius:8px;color:var(--muted);flex:none;border:1px solid var(--line)}
+.add{align-self:flex-start;padding:8px 14px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:13px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.opt{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.opt select{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--ink);font:inherit}
+.check{display:flex;gap:10px;align-items:center;font-size:14px}
+.check input{width:20px;height:20px;accent-color:var(--amber)}
+.startrow{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:12px 18px;border-radius:10px;border:1px solid var(--line);font-weight:700}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:transparent;font-size:17px;flex:1;font-family:var(--f-display);font-weight:400;letter-spacing:.06em}
+
+/* ---------- Game ---------- */
+#game{height:100%;max-width:980px;margin:0 auto;display:flex;flex-direction:column;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:8px 10px;gap:8px;box-sizing:border-box}
+.top{display:flex;align-items:center;gap:10px}
+.top .logo{font-family:var(--f-display);font-size:20px;letter-spacing:.06em}
+.top .logo span{color:var(--dobon)}
+.top .round{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.top .sp{flex:1}
+.top button{padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--muted)}
+.seats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.seat{flex:none;min-width:92px;padding:7px 10px;border-radius:10px;background:rgba(0,0,0,.2);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px;transition:border-color .2s,background .2s}
+.seat.on{border-color:var(--amber);background:rgba(242,180,60,.12)}
+.seat .sn{font-weight:700;font-size:13px;white-space:nowrap}
+.seat .sn em{font-style:normal;font-size:10px;color:var(--amber);margin-left:4px}
+.seat .sc{display:flex;align-items:center;gap:5px;font-size:13px;font-variant-numeric:tabular-nums}
+.seat .ss{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mini-back{width:11px;height:15px;border-radius:2px;background:var(--felt-2);border:1.5px solid var(--card);display:inline-block}
+
+.table{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:clamp(14px,4vw,40px);flex-wrap:wrap}
+.deck{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.deck .card{box-shadow:3px 3px 0 var(--card),3px 3px 0 1px rgba(0,0,0,.3),0 6px 14px rgba(0,0,0,.35)}
+.deck.can .card{outline:2px solid var(--amber);outline-offset:3px}
+.pile{position:relative;width:calc(var(--cw)*1.3 + 22px);height:calc(var(--ch)*1.3 + 10px)}
+.pile .card{position:absolute;--cw:calc(58px*1.3);--ch:calc(84px*1.3)}
+@media (min-width:720px){ .pile .card{--cw:calc(70px*1.3);--ch:calc(101px*1.3)} }
+.pile .under{left:0;top:6px;transform:rotate(-9deg);filter:brightness(.82)}
+.pile .topc{left:20px;top:0;transform:rotate(3deg)}
+.pile .topc.fresh{animation:land .28s ease-out}
+@keyframes land{from{transform:translateY(-26px) rotate(-6deg) scale(1.06);opacity:.4}to{transform:rotate(3deg)}}
+.status{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}
+.need{display:flex;flex-direction:column;gap:2px}
+.need .lbl{font-size:11px;letter-spacing:.14em;color:var(--muted)}
+.need .v{font-family:var(--f-display);font-size:28px;line-height:1.1;display:flex;align-items:baseline;gap:8px}
+.need .v small{font-family:var(--f-body);font-size:13px;color:var(--muted)}
+.need .v .r{color:#ff8b7f}
+.pill{padding:4px 10px;border-radius:999px;font-size:13px;font-weight:700}
+.pill.pend{background:var(--dobon);color:#fff;font-family:var(--f-display);font-weight:400;font-size:20px;padding:2px 14px}
+.pill.forced{background:rgba(242,180,60,.16);color:var(--amber);border:1px solid rgba(242,180,60,.4)}
+.pill.dir{background:rgba(0,0,0,.25);color:var(--muted);font-weight:500}
+
+.log{min-height:42px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:0}
+.log div:first-child{color:var(--ink);font-size:14px}
+
+.handwrap{display:flex;flex-direction:column;gap:6px}
+.handhead{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);min-height:20px}
+.handhead b{color:var(--ink)}
+.handhead .yt{color:var(--amber);font-weight:700}
+.hand{display:flex;overflow-x:auto;padding:18px 6px 6px;min-height:calc(var(--ch) + 24px);scrollbar-width:thin;box-sizing:border-box}
+.hand .card{transition:transform .15s,filter .15s;margin-left:var(--ov,4px)}
+.hand .card:first-child{margin-left:0}
+.hand.myturn .card.no{filter:brightness(.62)}
+.hand .card.sel{transform:translateY(-16px)}
+.hand .card.sel.ok{box-shadow:0 0 0 3px var(--amber),0 8px 16px rgba(0,0,0,.4)}
+.hand .empty{color:var(--muted);font-size:13px;align-self:center;margin:auto}
+.actions{display:flex;gap:8px;align-items:stretch}
+.act{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.22);font-weight:700;font-size:14px}
+.act.play{background:var(--amber);color:var(--amber-ink);border-color:transparent}
+.dobonbar{display:flex;gap:8px;flex:1;justify-content:flex-end;flex-wrap:wrap;position:relative;z-index:40}
+.dobon{font-family:var(--f-display);font-size:24px;letter-spacing:.04em;color:#fff;background:var(--dobon);border-radius:14px;padding:8px 22px;box-shadow:0 5px 0 var(--dobon-deep);transition:transform .06s,box-shadow .06s}
+.dobon:active{transform:translateY(4px);box-shadow:0 1px 0 var(--dobon-deep)}
+.dobon.sm{font-size:15px;padding:7px 12px;border-radius:10px;box-shadow:0 4px 0 var(--dobon-deep)}
+.dobon.sm small{display:block;font-family:var(--f-body);font-size:11px;font-weight:700;opacity:.85}
+
+/* ---------- Cards ---------- */
+.card{width:var(--cw);height:var(--ch);border-radius:calc(var(--cw)*.12);background:var(--card);color:var(--card-ink);position:relative;flex:none;box-shadow:0 1px 0 rgba(0,0,0,.2),0 4px 10px rgba(0,0,0,.3);font-family:var(--f-display);overflow:hidden;box-sizing:border-box}
+.card .cr{position:absolute;top:calc(var(--cw)*.06);left:calc(var(--cw)*.1);font-size:calc(var(--cw)*.32);line-height:1;letter-spacing:-.04em}
+.card .cs{position:absolute;top:calc(var(--cw)*.42);left:calc(var(--cw)*.11);font-size:calc(var(--cw)*.24);line-height:1}
+.card .cc{position:absolute;right:calc(var(--cw)*.09);bottom:calc(var(--cw)*.06);font-size:calc(var(--cw)*.6);line-height:1}
+.card.red{color:var(--card-red)}
+.card.joker{background:linear-gradient(160deg,var(--card) 55%,#f6e3b5)}
+.card.joker .jk{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.card.joker .jk b{font-size:calc(var(--cw)*.5);color:var(--card-red);line-height:1;font-weight:400}
+.card.joker .jk i{font-style:normal;font-size:calc(var(--cw)*.16);letter-spacing:.08em}
+.card.back{background-color:var(--felt-2);border:calc(var(--cw)*.06) solid var(--card);background-image:repeating-linear-gradient(45deg,rgba(242,180,60,.22) 0 2px,transparent 2px 9px),repeating-linear-gradient(-45deg,rgba(242,180,60,.22) 0 2px,transparent 2px 9px)}
+.card.xs{--cw:30px;--ch:43px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.card.xs .cc{display:none}
+.card.xs .cs{top:auto;bottom:3px;left:auto;right:4px;font-size:12px}
+.card.xs .cr{font-size:12px;top:3px;left:4px}
+
+/* ---------- Overlays ---------- */
+.ov{position:fixed;inset:0;z-index:30;background:rgba(9,14,28,.72);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));backdrop-filter:blur(3px)}
+.sheet{background:var(--felt);border:1px solid var(--line);border-radius:16px;padding:20px;max-width:560px;width:100%;max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px;box-sizing:border-box;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.sheet h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:24px;line-height:1.3;text-wrap:balance}
+.sheet h3 .d{color:var(--dobon)}
+.sheet .sub{margin:-6px 0 0;color:var(--muted);font-size:13px}
+.sheet .row{display:flex;gap:8px;flex-wrap:wrap}
+.suits{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.suits button{background:var(--card);color:var(--card-ink);border-radius:12px;font-size:40px;padding:10px 0;line-height:1.1}
+.suits button.r{color:var(--card-red)}
+.suits button span{display:block;font-size:11px;font-family:var(--f-body);font-weight:700}
+.minihand{display:flex;flex-wrap:wrap;gap:4px}
+.res{display:flex;flex-direction:column;gap:6px}
+.res .rr{display:grid;grid-template-columns:minmax(64px,auto) 1fr auto;gap:4px 10px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.2)}
+.res .rr.w{outline:1px solid var(--amber)}
+.res .rr.l{outline:1px solid var(--dobon)}
+.res .nm{font-weight:700;font-size:14px}
+.res .nm small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
+.res .calc{grid-column:2/4;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.res .pts{text-align:right;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.res .pts b{display:block;font-size:17px}
+.res .minihand{min-width:0}
+.rank{display:flex;flex-direction:column;gap:6px}
+.rank div{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.2);font-variant-numeric:tabular-nums}
+.rank div b{font-family:var(--f-display);font-weight:400;width:28px;color:var(--muted)}
+.rank div:first-child b{color:var(--amber)}
+.rank div span{flex:1;font-weight:700}
+.cover{flex-direction:column;gap:14px;text-align:center}
+.cover .who{font-family:var(--f-display);font-size:34px}
+.cover .lbl{color:var(--muted)}
+.rules{font-size:14px;display:flex;flex-direction:column;gap:12px}
+.rules h4{margin:0;font-size:12px;letter-spacing:.16em;color:var(--amber)}
+.rules ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:3px}
+.rules table{border-collapse:collapse;font-size:13px;width:100%}
+.rules td{border-top:1px solid var(--line);padding:5px 6px;vertical-align:top}
+.rules td:first-child{font-family:var(--f-display);white-space:nowrap;width:4.5em}
+
+#toasts{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:60;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding-inline:16px}
+.toast{background:rgba(8,12,24,.92);border:1px solid var(--line);padding:8px 14px;border-radius:999px;font-size:13.5px;font-weight:700;animation:tin .2s ease-out}
+.toast.miss{border-color:var(--amber);color:var(--amber)}
+.toast.bad{border-color:var(--dobon);color:#ff9d92}
+@keyframes tin{from{transform:translateY(-8px);opacity:0}}
+#flash{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#flash .stamp{font-family:var(--f-display);font-size:clamp(64px,20vw,150px);color:#fff;background:var(--dobon);padding:4px 28px;border-radius:20px;transform:rotate(-8deg);box-shadow:0 10px 0 var(--dobon-deep),0 30px 60px rgba(0,0,0,.5);animation:stamp .9s cubic-bezier(.2,1.6,.4,1) both}
+#flash .stamp small{display:block;font-size:.3em;text-align:center;letter-spacing:.1em}
+@keyframes stamp{0%{transform:scale(2.4) rotate(-14deg);opacity:0}40%{transform:scale(.95) rotate(-8deg);opacity:1}100%{transform:scale(1) rotate(-8deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="setup"></div>
+<div id="game" hidden></div>
+<div id="ov"></div>
+<div id="toasts"></div>
+<div id="flash"></div>
+
+<script>
+(()=>{
+const SUITS=['S','H','D','C'];
+const SYM={S:'♠',H:'♥',D:'♦',C:'♣'};
+const SNAME={S:'スペード',H:'ハート',D:'ダイヤ',C:'クラブ'};
+const isRed=s=>s==='H'||s==='D';
+const RL=r=>({1:'A',11:'J',12:'Q',13:'K'}[r]||String(r));
+const SPEED={slow:2300,normal:1500,fast:850};
+const CLAIM={slow:1.4,normal:1,fast:.6};
+const RULES={
+  local:{name:'ローカル',fx:{1:'follow',2:'plus',3:'skip',8:'suit',9:'rev'},plus:'mul',outWin:true},
+  general:{name:'一般',fx:{1:'skip',2:'plus',8:'suit',11:'rev'},plus:'add',outWin:false}
+};
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const rand=(a,b)=>a+Math.random()*(b-a);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+const DEFAULTS={players:[{name:'あなた',cpu:false},{name:'CPU 1',cpu:true},{name:'CPU 2',cpu:true},{name:'CPU 3',cpu:true}],games:5,hand:5,jokers:2,speed:'normal',drawPlay:false};
+let S;
+try{S=JSON.parse(localStorage.getItem('dobon-settings'))}catch(e){}
+if(!S||!Array.isArray(S.players)) S=JSON.parse(JSON.stringify(DEFAULTS));
+if(!RULES[S.mode])S.mode='local';
+const save=()=>{try{localStorage.setItem('dobon-settings',JSON.stringify(S))}catch(e){}};
+
+let G=null, gen=0, winSeq=0, menuOpen=false, rulesOpen=false, quitArm=false, freshTop=false;
+const later=(fn,ms)=>{const g=gen;setTimeout(()=>{if(G&&g===gen)fn()},ms)};
+
+/* ---------- card values ---------- */
+const dobonVal=c=>c.joker?0:c.rank;
+const dobonSum=h=>h.reduce((s,c)=>s+dobonVal(c),0);
+const pointVal=c=>G&&G.mode==='general'?(c.joker?50:c.rank):(c.joker?100:c.rank===8?50:c.rank>=10?10:c.rank);
+function handScore(cards){
+  const base=cards.reduce((s,c)=>s+pointVal(c),0);
+  if(G.mode==='general')return {base,n2:0,pts:base};
+  const n2=cards.filter(c=>!c.joker&&c.rank===2).length;
+  return {base,n2,pts:base*2**n2};
+}
+const fxOf=c=>c.joker?null:G.R.fx[c.rank];
+const label=c=>c.joker?'ジョーカー':SYM[c.suit]+RL(c.rank);
+
+/* ---------- match / round ---------- */
+function newMatch(){
+  G={players:S.players.map(p=>({name:p.name.trim()||'名無し',cpu:p.cpu,score:0,hand:[]})),
+     mode:S.mode,R:RULES[S.mode],round:0,total:S.games,starter:Math.floor(Math.random()*S.players.length),revealed:-1,turnId:0};
+  newRound();
+}
+function newRound(){
+  gen++;
+  G.round++;
+  let id=0;const deck=[];
+  for(const s of SUITS)for(let r=1;r<=13;r++)deck.push({id:id++,suit:s,rank:r,joker:false});
+  for(let j=0;j<S.jokers;j++)deck.push({id:id++,suit:null,rank:0,joker:true});
+  shuffle(deck);
+  G.players.forEach(p=>p.hand=[]);
+  for(let k=0;k<S.hand;k++)G.players.forEach(p=>p.hand.push(deck.pop()));
+  let top=deck.pop();
+  while(top.joker){deck.unshift(top);top=deck.pop()}
+  G.deck=deck;G.pile=[{...top,by:-1}];
+  G.eff={suit:top.suit,rank:top.rank};
+  G.dir=1;G.pending=0;G.forced=null;G.win=null;G.drew=false;G.drawnId=null;
+  G.sel=null;G.ui=null;G.dobon=null;G.result=null;G.revealed=-1;
+  G.turn=G.starter;G.starter=(G.starter+1)%G.players.length;
+  G.log=[`第${G.round}ゲーム開始 — 最初の場札 ${label(top)}`];
+  startTurn();
+}
+const N=()=>G.players.length;
+const humans=()=>G.players.map((p,i)=>p.cpu?-1:i).filter(i=>i>=0);
+const multi=()=>humans().length>1;
+function viewer(){const h=humans();if(!h.length)return -1;if(h.length===1)return h[0];return G.revealed}
+function step(i,k){for(let t=0;t<k;t++)i=(i+G.dir+N())%N();return i}
+function log(t){G.log.unshift(t);G.log.length=Math.min(G.log.length,4)}
+
+function startTurn(){
+  G.drew=false;G.drawnId=null;G.sel=null;G.ui=null;G.turnId++;
+  const p=G.players[G.turn];
+  if(p.cpu){
+    if(multi())G.revealed=-1;
+    G.phase='play';
+    const id=G.turnId;later(()=>{if(G.turnId===id)cpuTurn()},SPEED[S.speed]);
+  }else if(multi()&&G.revealed!==G.turn){G.revealed=-1;G.phase='cover'}
+  else G.phase='play';
+  render();
+}
+
+function basicPlayable(c){return c.joker||c.suit===G.eff.suit||c.rank===G.eff.rank}
+function playable(c,pi){
+  if(!G.R.outWin&&G.players[pi].hand.length===1)return false;
+  if(G.pending>0)return !c.joker&&c.rank===2;
+  if(G.forced&&G.forced.player===pi)return c.joker||c.suit===G.forced.suit;
+  if(G.drew)return c.id===G.drawnId&&basicPlayable(c);
+  return basicPlayable(c);
+}
+
+function drawCards(pi,k){
+  const got=[];
+  for(let t=0;t<k;t++){
+    if(!G.deck.length){
+      if(G.pile.length<=1)break;
+      const top=G.pile.pop();
+      G.deck=shuffle(G.pile.map(({by,...c})=>c));G.pile=[top];
+      log('山札がなくなったので場札を混ぜ直した');
+    }
+    const c=G.deck.pop();G.players[pi].hand.push(c);got.push(c);
+  }
+  if(got.length<k)toast('山札も場札も足りず、これ以上引けない','miss');
+  return got;
+}
+
+function closeWindow(){
+  const w=G.win;if(!w)return;
+  if(!w.claimed){
+    w.eligible.forEach(i=>{toast(`${G.players[i].name}はドボンを逃した！（${label(w.card)}）`,'miss');});
+  }
+  G.win=null;
+}
+function canDobon(i,w){
+  if(!w||i===w.by)return false;
+  const h=G.players[i].hand;return h.length>0&&dobonSum(h)===w.value;
+}
+function refreshEligibility(){
+  const w=G.win;if(!w||w.claimed)return;
+  G.players.forEach((p,i)=>{
+    if(i===w.by||w.eligible.has(i))return;
+    if(canDobon(i,w)){
+      w.eligible.add(i);
+      if(p.cpu&&Math.random()<0.85){
+        const wid=w.id;
+        later(()=>{if(G.win&&G.win.id===wid&&!G.win.claimed&&canDobon(i,G.win))declareDobon(i)},rand(650,1600)*CLAIM[S.speed]);
+      }
+    }
+  });
+}
+
+function playCard(pi,id,suit){
+  const p=G.players[pi];const idx=p.hand.findIndex(c=>c.id===id);
+  if(idx<0)return;
+  const c=p.hand.splice(idx,1)[0];
+  closeWindow();
+  G.pile.push({...c,by:pi});freshTop=true;
+  G.win={card:c,by:pi,value:dobonVal(c),eligible:new Set(),claimed:false,id:++winSeq};
+  G.forced=null;G.sel=null;G.ui=null;
+  let skip=1,stay=false,note='';
+  if(!c.joker){
+    G.eff={suit:c.suit,rank:c.rank};
+    switch(fxOf(c)){
+      case 'follow':G.forced={player:pi,suit:c.suit};stay=true;note=' → 同じ柄をもう1枚';break;
+      case 'plus':G.pending=G.pending?(G.R.plus==='mul'?G.pending*2:G.pending+2):2;note=` → 次の人 +${G.pending}`;break;
+      case 'skip':skip=2;note=N()===2?' → スキップ（もう一度）':' → 次の人スキップ';break;
+      case 'suit':G.eff.suit=suit;note=` → ${SYM[suit]}${SNAME[suit]}を指定`;break;
+      case 'rev':if(N()>2){G.dir*=-1;note=' → リバース'}else note='（2人なので効果なし）';break;
+    }
+  }else note=' → 前のカードに続ける';
+  log(`${p.name}：${label(c)}${note}`);
+  if(p.hand.length===0&&!stay){endRound({type:'out',winner:pi});return}
+  refreshEligibility();
+  if(stay){
+    G.drew=false;G.drawnId=null;render();
+    if(p.cpu){const tid=G.turnId;later(()=>{if(G.turnId===tid)cpuTurn()},SPEED[S.speed]*.6)}
+    return;
+  }
+  G.turn=step(pi,skip);startTurn();
+}
+
+function drawAction(pi){
+  const p=G.players[pi];
+  if(G.pending>0){
+    const k=G.pending;drawCards(pi,k);G.pending=0;log(`${p.name}：${k}枚引いた`);
+    refreshEligibility();G.turn=step(pi,1);startTurn();return;
+  }
+  if(G.forced&&G.forced.player===pi){
+    drawCards(pi,1);G.forced=null;log(`${p.name}：同じ柄が出せず1枚引いた`);
+    refreshEligibility();G.turn=step(pi,1);startTurn();return;
+  }
+  if(G.drew){log(`${p.name}：パス`);G.turn=step(pi,1);startTurn();return}
+  const got=drawCards(pi,1);log(`${p.name}：1枚引いた`);
+  refreshEligibility();
+  if(S.drawPlay&&got[0]&&basicPlayable(got[0])){
+    G.drew=true;G.drawnId=got[0].id;G.sel=p.cpu?null:got[0].id;render();
+    if(p.cpu){const tid=G.turnId;later(()=>{if(G.turnId===tid)cpuTurn()},SPEED[S.speed]*.6)}
+    return;
+  }
+  G.turn=step(pi,1);startTurn();
+}
+
+/* ---------- CPU ---------- */
+function cpuTurn(){
+  if(G.phase!=='play')return;
+  const pi=G.turn,p=G.players[pi];if(!p.cpu)return;
+  const opts=p.hand.filter(c=>playable(c,pi));
+  if(!opts.length){drawAction(pi);return}
+  let best=null,bs=-1e9;
+  for(const c of opts){
+    let s=pointVal(c);
+    if(c.joker)s=(opts.length===1||p.hand.length<=2)?60:-40;
+    else if(fxOf(c)==='follow')s+=p.hand.some(x=>x!==c&&!x.joker&&x.suit===c.suit)?6:-25;
+    else if(fxOf(c)==='plus')s+=8;
+    else if(fxOf(c)==='skip'||fxOf(c)==='rev')s+=3;
+    s+=Math.random()*5;
+    if(s>bs){bs=s;best=c}
+  }
+  let suit;
+  if(fxOf(best)==='suit'){
+    const cnt={S:0,H:0,D:0,C:0};
+    p.hand.forEach(c=>{if(c!==best&&!c.joker)cnt[c.suit]++});
+    suit=SUITS.reduce((a,b)=>cnt[b]>cnt[a]?b:a,SUITS[Math.floor(Math.random()*4)]);
+  }
+  playCard(pi,best.id,suit);
+}
+
+/* ---------- DOBON ---------- */
+function declareDobon(di){
+  if(!G||!(G.phase==='play'||G.phase==='cover'))return;
+  const w=G.win,d=G.players[di];
+  if(!canDobon(di,w)){toast(`${d.name}：ドボン不成立`,'bad');return}
+  w.claimed=true;gen++;G.ui=null;
+  G.dobon={by:di,target:w.by,value:w.value,card:w.card};
+  log(`${d.name}がドボン！（${label(w.card)}）`);
+  flash('ドボン！',d.name);
+  const t=G.players[w.by];
+  if(t.cpu){
+    G.phase='wait';render();
+    later(()=>resolveReturn(dobonSum(t.hand)===w.value),1500);
+  }else{G.phase='return';later(render,900)}
+  render();
+}
+function resolveReturn(tryIt){
+  const {by,target,value}=G.dobon;
+  const t=G.players[target];
+  if(tryIt){
+    if(t.hand.length&&dobonSum(t.hand)===value){
+      flash('ドボン返し！',t.name);gen++;
+      later(()=>endRound({type:'dobon',winner:target,loser:by,returned:true,value}),1100);
+      G.phase='wait';render();return;
+    }
+    toast(`${t.name}：ドボン返し不成立`,'bad');
+  }
+  endRound({type:'dobon',winner:by,loser:target,returned:false,value});
+}
+
+function endRound(r){
+  gen++;G.phase='result';G.ui=null;
+  const winHand=G.players[r.winner].hand.slice();
+  const rows=G.players.map((p,i)=>{
+    let cards=p.hand.slice(),recv=false;
+    if(G.mode==='local'&&r.type==='dobon'&&i===r.loser){cards=cards.concat(winHand);recv=true}
+    const sc=i===r.winner?{base:0,n2:0,pts:0}:handScore(cards);
+    if(G.mode==='general'&&r.type==='dobon'&&i===r.loser){sc.dbl=true;sc.pts*=2}
+    p.score+=sc.pts;
+    return {i,cards,recv,...sc};
+  });
+  G.result={...r,rows};
+  render();
+}
+
+/* ---------- UI helpers ---------- */
+function toast(t,cls=''){
+  const el=document.createElement('div');el.className='toast '+cls;el.textContent=t;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),2800);
+}
+function flash(t,sub){
+  const f=document.getElementById('flash');
+  f.innerHTML=`<div class="stamp">${esc(t)}<small>${esc(sub)}</small></div>`;
+  clearTimeout(flash.t);flash.t=setTimeout(()=>f.innerHTML='',1300);
+}
+function cardHTML(c,cls='',attrs=''){
+  if(c.back)return `<div class="card back ${cls}" ${attrs}></div>`;
+  if(c.joker)return `<div class="card joker ${cls}" ${attrs} aria-label="ジョーカー"><div class="jk"><b>★</b><i>JOKER</i></div></div>`;
+  return `<div class="card ${isRed(c.suit)?'red':''} ${cls}" ${attrs} aria-label="${SNAME[c.suit]}の${RL(c.rank)}"><span class="cr">${RL(c.rank)}</span><span class="cs">${SYM[c.suit]}</span><span class="cc">${SYM[c.suit]}</span></div>`;
+}
+function sortHand(h){
+  const o={S:0,H:1,D:2,C:3};
+  return h.slice().sort((a,b)=>(a.joker-b.joker)||(a.joker?0:(o[a.suit]-o[b.suit])||(a.rank-b.rank)));
+}
+
+/* ---------- render ---------- */
+function render(){
+  document.getElementById('setup').hidden=!!G;
+  document.getElementById('game').hidden=!G;
+  if(!G)renderSetup();else renderGame();
+  renderOverlays();
+}
+
+function renderSetup(){
+  const el=document.getElementById('setup');
+  el.innerHTML=`
+  <div class="brand"><h1>ドボン<span>！</span></h1><p>ローカルルール版</p></div>
+  <section class="panel"><h2>ルール</h2>
+    <div class="seg mode">${Object.entries(RULES).map(([k,r])=>`<button data-act="mode" data-v="${k}" class="${S.mode===k?'on':''}">${r.name}ルール</button>`).join('')}</div>
+    <p class="hint">${S.mode==='local'?'1は同じ柄をもう1枚、3スキップ、9リバース、+2は倍々、上がりあり、2で点数2倍':'1スキップ、Jリバース、+2は足し算、ドボンでのみ上がり、ドボンされた人は点数2倍'}</p>
+  </section>
+  <section class="panel"><h2>プレイヤー（${S.players.length}人）</h2>
+    ${S.players.map((p,i)=>`<div class="prow">
+      <input id="pn-${i}" data-name="${i}" value="${esc(p.name)}" maxlength="10" aria-label="プレイヤー${i+1}の名前">
+      <div class="seg"><button data-act="kind" data-i="${i}" data-v="0" class="${p.cpu?'':'on'}">人</button><button data-act="kind" data-i="${i}" data-v="1" class="${p.cpu?'on':''}">CPU</button></div>
+      <button class="x" data-act="delp" data-i="${i}" ${S.players.length<=2?'disabled':''} aria-label="削除">×</button>
+    </div>`).join('')}
+    ${S.players.length<6?'<button class="add" data-act="addp">＋ プレイヤーを追加</button>':''}
+  </section>
+  <section class="panel"><h2>設定</h2>
+    <div class="opts">
+      <label class="opt">ゲーム数<select id="o-games">${[1,3,5,10,0].map(v=>`<option value="${v}" ${S.games===v?'selected':''}>${v?v+'ゲーム':'無制限'}</option>`).join('')}</select></label>
+      <label class="opt">配る枚数<select id="o-hand">${[5,7].map(v=>`<option value="${v}" ${S.hand===v?'selected':''}>${v}枚</option>`).join('')}</select></label>
+      <label class="opt">ジョーカー<select id="o-jokers">${[0,1,2].map(v=>`<option value="${v}" ${S.jokers===v?'selected':''}>${v}枚</option>`).join('')}</select></label>
+      <label class="opt">CPUの速さ<select id="o-speed">${[['slow','ゆっくり'],['normal','ふつう'],['fast','はやい']].map(([v,t])=>`<option value="${v}" ${S.speed===v?'selected':''}>${t}</option>`).join('')}</select></label>
+    </div>
+    <label class="check"><input type="checkbox" id="o-drawplay" ${S.drawPlay?'checked':''}>引いたカードが出せるなら、そのまま出してよい</label>
+  </section>
+  <div class="startrow"><button class="btn" data-act="rules">ルール</button><button class="btn primary" data-act="start">対戦スタート</button></div>`;
+}
+
+function renderGame(){
+  const el=document.getElementById('game');
+  const vw=viewer();
+  const top=G.pile[G.pile.length-1],prev=G.pile[G.pile.length-2];
+  const total=G.total||'∞';
+  const me=vw>=0?G.players[vw]:null;
+  const myTurn=vw>=0&&vw===G.turn&&G.phase==='play';
+  const forcedMe=G.forced&&G.forced.player===G.turn;
+  const cur=G.players[G.turn];
+
+  let need;
+  if(G.pending>0)need=`<div class="v">2<small>だけ出せる</small></div>`;
+  else if(forcedMe)need=`<div class="v"><span class="${isRed(G.forced.suit)?'r':''}">${SYM[G.forced.suit]}</span><small>の柄だけ（${esc(cur.name)}）</small></div>`;
+  else need=`<div class="v"><span class="${isRed(G.eff.suit)?'r':''}">${SYM[G.eff.suit]}</span><small>か</small>${RL(G.eff.rank)}</div>`;
+
+  let handInner='';
+  if(me){
+    const h=sortHand(me.hand);
+    handInner=h.length?h.map(c=>{
+      const ok=myTurn&&playable(c,vw);
+      return cardHTML(c,`${ok?'ok':'no'} ${G.sel===c.id?'sel':''}`,`data-act="card" data-id="${c.id}" role="button" tabindex="0"`);
+    }).join(''):'<div class="empty">手札なし</div>';
+  }else handInner=`<div class="empty">${esc(cur.name)}の番</div>`;
+
+  let drawLbl='山札から引く';
+  if(G.pending>0)drawLbl=`${G.pending}枚引く`;else if(forcedMe)drawLbl='出せない（1枚引く）';else if(G.drew)drawLbl='パス';
+  const selCard=me&&G.sel!=null?me.hand.find(c=>c.id===G.sel):null;
+  const canPlay=myTurn&&selCard&&playable(selCard,vw);
+
+  const hs=humans();
+  const dob=hs.length===1?`<button class="dobon" data-act="dobon" data-i="${hs[0]}">ドボン！</button>`
+    :hs.map(i=>`<button class="dobon sm" data-act="dobon" data-i="${i}">ドボン<small>${esc(G.players[i].name)}</small></button>`).join('');
+
+  el.innerHTML=`
+  <div class="top"><div class="logo">ドボン<span>！</span></div><div class="round">${G.R.name}ルール ・ 第${G.round} / ${total}ゲーム</div><div class="sp"></div><button data-act="rules">ルール</button><button data-act="menu">メニュー</button></div>
+  <div class="seats">${G.players.map((p,i)=>`<div class="seat ${i===G.turn?'on':''}"><div class="sn">${esc(p.name)}${i===vw?'<em>あなた</em>':''}</div><div class="sc"><span class="mini-back"></span>× ${p.hand.length}</div><div class="ss">累計 ${p.score}点</div></div>`).join('')}</div>
+  <div class="table">
+    <button class="deck ${myTurn?'can':''}" data-act="draw" ${myTurn?'':'disabled'} aria-label="山札（${G.deck.length}枚）">${cardHTML({back:true})}<span>山札 ${G.deck.length}</span></button>
+    <div class="pile">${prev?cardHTML(prev,'under'):''}${cardHTML(top,'topc'+(freshTop?' fresh':''))}</div>
+    <div class="status">
+      <div class="need"><span class="lbl">次に出せる</span>${need}</div>
+      ${G.pending>0?`<span class="pill pend">+${G.pending}</span>`:''}
+      ${forcedMe?`<span class="pill forced">同じ柄をもう1枚</span>`:''}
+      <span class="pill dir">${G.dir===1?'↻ 時計回り':'↺ 反時計回り'}</span>
+    </div>
+  </div>
+  <div class="log">${G.log.slice(0,3).map(t=>`<div>${esc(t)}</div>`).join('')}</div>
+  <div class="handwrap">
+    <div class="handhead">${me?`<b>${esc(me.name)}</b>の手札 ${me.hand.length}枚`:''}${myTurn?'<span class="yt">— あなたの番</span>':`<span>— ${esc(cur.name)}の番</span>`}</div>
+    <div class="hand ${myTurn?'myturn':''}" id="hand">${handInner}</div>
+  </div>
+  <div class="actions">
+    ${myTurn?`<button class="act" data-act="draw">${drawLbl}</button><button class="act play" data-act="play" ${canPlay?'':'disabled'}>出す</button>`:''}
+    <div class="dobonbar">${dob}</div>
+  </div>`;
+  freshTop=false;
+  fitHand();
+}
+function fitHand(){
+  const h=document.getElementById('hand');if(!h)return;
+  const cards=h.querySelectorAll('.card');const n=cards.length;if(n<2)return;
+  const cw=cards[0].getBoundingClientRect().width;const avail=h.clientWidth-12;
+  let ov=4;
+  if(n*cw+(n-1)*4>avail)ov=-Math.min(cw*.62,(n*cw-avail)/(n-1));
+  h.style.setProperty('--ov',ov+'px');
+}
+
+function renderOverlays(){
+  const o=document.getElementById('ov');let html='';
+  if(G){
+    const vw=viewer();
+    if(G.phase==='cover'){
+      html=`<div class="ov cover"><div class="lbl">端末を渡してください</div><div class="who">${esc(G.players[G.turn].name)}</div><button class="btn primary" data-act="uncover" style="flex:none;padding-inline:36px">手札を見る</button><div class="lbl" style="font-size:12px">この間もドボンは画面下のボタンで宣言できます</div></div>`;
+    }
+    if(G.ui==='suit'){
+      html=`<div class="ov"><div class="sheet"><h3>8：柄を指定</h3><p class="sub">次の人はこの柄か8を出します</p><div class="suits">${SUITS.map(s=>`<button class="${isRed(s)?'r':''}" data-act="suit" data-s="${s}">${SYM[s]}<span>${SNAME[s]}</span></button>`).join('')}</div><button class="btn" data-act="cancelsuit">やめる</button></div></div>`;
+    }
+    if(G.phase==='return'){
+      const d=G.dobon,t=G.players[d.target];
+      html=`<div class="ov"><div class="sheet"><h3><span class="d">${esc(G.players[d.by].name)}のドボン！</span></h3><p class="sub">${esc(t.name)}が出した ${label(d.card)}（${d.value}）にドボン</p>
+      <div><b>${esc(t.name)}</b>さん、ドボン返ししますか？</div>
+      <div class="minihand">${sortHand(t.hand).map(c=>cardHTML(c,'xs')).join('')}</div>
+      <div class="row"><button class="dobon" data-act="ret" data-v="1">ドボン返し！</button><button class="btn" data-act="ret" data-v="0">受ける</button></div></div></div>`;
+    }
+    if(G.phase==='result')html=resultHTML();
+    if(G.phase==='final')html=finalHTML();
+    if(menuOpen)html+=`<div class="ov" style="z-index:45"><div class="sheet"><h3>メニュー</h3><div class="row"><button class="btn" data-act="quit">${quitArm?'もう一度押すと対戦を終了':'対戦をやめて設定に戻る'}</button><button class="btn" data-act="closemenu">続ける</button></div></div></div>`;
+  }
+  if(rulesOpen)html+=rulesHTML();
+  o.innerHTML=html;
+}
+
+function resultHTML(){
+  const r=G.result,W=G.players[r.winner].name;
+  let title,sub;
+  if(r.type==='out'){title=`${esc(W)}が上がり！`;sub='手札がなくなりました'}
+  else if(r.returned){title=`<span class="d">ドボン返し！</span> ${esc(W)}の勝ち`;sub=`${esc(G.players[r.loser].name)}の負け — ${G.mode==='local'?esc(W):''}${G.mode==='local'?`の手札も受け取ります`:'点数2倍'}（ドボン数字 ${r.value}）`}
+  else{title=`<span class="d">${esc(W)}のドボン！</span>`;sub=`${esc(G.players[r.loser].name)}の負け — ${G.mode==='local'?esc(W):''}${G.mode==='local'?`の手札も受け取ります`:'点数2倍'}（ドボン数字 ${r.value}）`}
+  const last=G.total&&G.round>=G.total;
+  return `<div class="ov"><div class="sheet"><h3>${title}</h3><p class="sub">${sub}</p>
+  <div class="res">${r.rows.map(x=>{
+    const p=G.players[x.i];const w=x.i===r.winner,l=r.type==='dobon'&&x.i===r.loser;
+    const calc=w?'勝ち — 0点':`合計 ${x.base}${x.n2?` × ${2**x.n2}（2が${x.n2}枚）`:''}${x.dbl?' × 2（ドボンされた）':''} = ${x.pts}点${x.recv?'（受け取った手札込み）':''}`;
+    return `<div class="rr ${w?'w':''} ${l?'l':''}"><div class="nm">${esc(p.name)}<small>${w?'勝ち':l?'ドボンされた':''}</small></div><div class="minihand">${sortHand(x.cards).map(c=>cardHTML(c,'xs')).join('')||'<span style="color:var(--muted);font-size:12px">なし</span>'}</div><div class="pts">+${x.pts}<b>${p.score}点</b></div><div class="calc">${calc}</div></div>`;
+  }).join('')}</div>
+  <div class="row">${last?'<button class="btn primary" data-act="final">最終結果を見る</button>':`<button class="btn primary" data-act="next">次のゲームへ</button>${G.total?'':'<button class="btn" data-act="final">ここで終了</button>'}`}</div></div></div>`;
+}
+function finalHTML(){
+  const order=G.players.map((p,i)=>({p,i})).sort((a,b)=>a.p.score-b.p.score);
+  order.forEach((x,k)=>{x.rk=k&&x.p.score===order[k-1].p.score?order[k-1].rk:k+1});
+  const champs=order.filter(x=>x.rk===1).map(x=>esc(x.p.name)).join('・');
+  return `<div class="ov"><div class="sheet"><h3>${champs}の優勝！</h3><p class="sub">${G.round}ゲーム終了 — 点数が少ない人が勝ち</p>
+  <div class="rank">${order.map(x=>`<div><b>${x.rk}</b><span>${esc(x.p.name)}</span>${x.p.score}点</div>`).join('')}</div>
+  <div class="row"><button class="btn primary" data-act="again">同じ設定でもう一度</button><button class="btn" data-act="tosetup">設定に戻る</button></div></div></div>`;
+}
+function rulesHTML(){
+  const mode=G?G.mode:S.mode;
+  if(mode==='general')return generalRulesHTML();
+  return `<div class="ov" style="z-index:50"><div class="sheet"><h3>ルール</h3><div class="rules">
+  <div><h4>基本</h4><ul><li>場札と同じ柄か同じ数字のカードを1枚出す。出さない・出せないときは山札から1枚引く</li><li>手札がなくなったら上がり（勝ち）</li></ul></div>
+  <div><h4>特殊カード</h4><table>
+  <tr><td>A（1）</td><td>同じ柄をもう1枚出す（強制・連鎖可・2枚目の効果も発動）。出せなければ1枚引く</td></tr>
+  <tr><td>2</td><td>次の人に+2。2で返すと倍々（2→4→8→16）。返せない人が全部引く</td></tr>
+  <tr><td>3</td><td>次の人をスキップ（2人ならもう一度自分）</td></tr>
+  <tr><td>8</td><td>出した人が柄を指定</td></tr>
+  <tr><td>9</td><td>リバース（2人なら効果なし）</td></tr>
+  <tr><td>JOKER</td><td>いつでも出せる。次の人はジョーカーの前のカードに続ける</td></tr></table></div>
+  <div><h4>ドボン</h4><ul><li>誰かが出したカードの数字 ＝ 自分の手札の合計なら「ドボン！」で勝ち。出した人の負け</li><li>数字はそのまま（J=11, Q=12, K=13）、ジョーカーは0</li><li>山札から引いた直後でもOK。自分が出したカードにはできない</li><li>その札の上に次のカードが出るまで宣言できる。逃すと表示される</li><li>ドボンされた人の手札合計も同じならドボン返しで逆転</li></ul></div>
+  <div><h4>点数（少ない方が勝ち）</h4><ul><li>10〜K＝10点、8＝50点、ジョーカー＝100点、ほかは数字どおり</li><li>2が1枚あるごとに合計を2倍</li><li>勝った人は0点。ドボンされた人は相手の手札も受け取って計算</li></ul></div>
+  </div><button class="btn" data-act="closerules">閉じる</button></div></div>`;
+}
+
+function generalRulesHTML(){
+  return `<div class="ov" style="z-index:50"><div class="sheet"><h3>ルール（一般）</h3><div class="rules">
+  <div><h4>基本</h4><ul><li>場札と同じ柄か同じ数字のカードを1枚出す。出さない・出せないときは山札から1枚引く</li><li>最後の1枚は出せない。勝つにはドボンするしかない</li></ul></div>
+  <div><h4>特殊カード</h4><table>
+  <tr><td>A（1）</td><td>次の人をスキップ（2人ならもう一度自分）</td></tr>
+  <tr><td>2</td><td>次の人に+2。2で返すと足し算で重なる（2→4→6…）。返せない人が全部引く</td></tr>
+  <tr><td>8</td><td>出した人が柄を指定</td></tr>
+  <tr><td>J</td><td>リバース（2人なら効果なし）</td></tr>
+  <tr><td>JOKER</td><td>いつでも出せる。次の人はジョーカーの前のカードに続ける</td></tr></table></div>
+  <div><h4>ドボン</h4><ul><li>誰かが出したカードの数字 ＝ 自分の手札の合計なら「ドボン！」で勝ち。出した人の負け</li><li>数字はそのまま（J=11, Q=12, K=13）、ジョーカーは0</li><li>山札から引いた直後でもOK。自分が出したカードにはできない</li><li>その札の上に次のカードが出るまで宣言できる</li><li>ドボンされた人の手札合計も同じならドボン返しで逆転</li></ul></div>
+  <div><h4>点数（少ない方が勝ち）</h4><ul><li>手札の数字の合計（J=11, Q=12, K=13、ジョーカー＝50点）</li><li>勝った人は0点。ドボンされた人は2倍</li></ul></div>
+  </div><button class="btn" data-act="closerules">閉じる</button></div></div>`;
+}
+
+/* ---------- events ---------- */
+function humanPlay(id){
+  const vw=viewer();if(vw<0||vw!==G.turn||G.phase!=='play')return;
+  const c=G.players[vw].hand.find(x=>x.id===id);if(!c||!playable(c,vw))return;
+  if(fxOf(c)==='suit'){G.sel=id;G.ui='suit';render();return}
+  playCard(vw,id);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act,i=+b.dataset.i;
+  switch(a){
+    case 'mode':S.mode=b.dataset.v;save();render();break;
+    case 'kind':S.players[i].cpu=b.dataset.v==='1';save();render();break;
+    case 'delp':if(S.players.length>2){S.players.splice(i,1);save();render()}break;
+    case 'addp':{const n=S.players.filter(p=>p.cpu).length+1;S.players.push({name:'CPU '+n,cpu:true});save();render();break}
+    case 'start':save();newMatch();break;
+    case 'rules':rulesOpen=true;render();break;
+    case 'closerules':rulesOpen=false;render();break;
+    case 'menu':menuOpen=true;quitArm=false;render();break;
+    case 'closemenu':menuOpen=false;render();break;
+    case 'quit':if(!quitArm){quitArm=true;render()}else{gen++;G=null;menuOpen=false;render()}break;
+    case 'card':{const id=+b.dataset.id;const vw=viewer();
+      if(G.sel===id&&vw===G.turn&&G.phase==='play')humanPlay(id);else{G.sel=id;render()}break}
+    case 'play':if(G.sel!=null)humanPlay(G.sel);break;
+    case 'draw':{const vw=viewer();if(vw===G.turn&&G.phase==='play')drawAction(vw);break}
+    case 'suit':{const vw=viewer();if(G.ui==='suit'&&vw===G.turn&&G.phase==='play')playCard(vw,G.sel,b.dataset.s);break}
+    case 'cancelsuit':G.ui=null;render();break;
+    case 'dobon':declareDobon(i);break;
+    case 'uncover':G.revealed=G.turn;G.phase='play';render();break;
+    case 'ret':if(G.phase==='return'){G.phase='wait';resolveReturn(b.dataset.v==='1')}break;
+    case 'next':newRound();break;
+    case 'final':G.phase='final';render();break;
+    case 'again':newMatch();break;
+    case 'tosetup':gen++;G=null;render();break;
+  }
+});
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches('.card[data-act]')){e.preventDefault();e.target.click()}
+});
+document.addEventListener('input',e=>{
+  if(e.target.dataset.name!=null){S.players[+e.target.dataset.name].name=e.target.value;save()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='o-games')S.games=+t.value;
+  else if(t.id==='o-hand')S.hand=+t.value;
+  else if(t.id==='o-jokers')S.jokers=+t.value;
+  else if(t.id==='o-speed')S.speed=t.value;
+  else if(t.id==='o-drawplay')S.drawPlay=t.checked;
+  else return;
+  save();
+});
+window.addEventListener('resize',fitHand);
+render();
+})();
+</script>
+
+</body>
+</html>
