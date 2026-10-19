@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ドボン 紹介アニメーション</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<style>
+/* Layout: 16:9 stage, 10s loop. The loop starts and ends on the title lockup, so the first still frame is the title and the cut back to 0s is invisible.
+   Unit: 1em = 1% of stage width. Only inner text spans change font-size; positioned boxes never do, so em values never compound. */
+:root{
+  --felt:#1c2b4d; --felt-hi:#2c4276; --edge:#0b1326;
+  --paper:#fbf8f0; --ink:#1d2333; --suit-red:#bb2f27;
+  --amber:#f2b43c; --dobon:#e2412f; --dobon-deep:#8f1f14;
+  --text:#f1efe7; --muted:#9db0d4;
+  --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--edge);color:var(--text);display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:var(--f-body)}
+.stage{--u:min(1vw,1.7778vh);font-size:var(--u);width:calc(var(--u)*100);height:calc(var(--u)*56.25);position:relative;overflow:hidden;background:var(--felt);isolation:isolate}
+.stage *{box-sizing:border-box}
+.a{position:absolute;opacity:0;animation-duration:10s;animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
+
+/* ---- 卓（フェルト・光・粒子） ---- */
+.felt{inset:0;opacity:1;background:radial-gradient(75% 85% at 50% 42%,var(--felt-hi) 0%,var(--felt) 55%,var(--edge) 115%)}
+.rim{left:3em;right:3em;top:2.4em;bottom:2.4em;opacity:1;border-radius:50% / 58%;border:.1em solid rgba(242,180,60,.13);box-shadow:inset 0 0 0 .5em rgba(0,0,0,.05)}
+.light{inset:0;opacity:1;background:radial-gradient(38% 52% at 50% 44%,rgba(255,236,190,.2),transparent 70%);animation-name:breathe;animation-timing-function:ease-in-out}
+@keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
+.grain{inset:0;opacity:.16;background-image:var(--grain);mix-blend-mode:soft-light;z-index:50;pointer-events:none}
+.vig{inset:0;opacity:1;background:radial-gradient(120% 110% at 50% 45%,transparent 55%,rgba(4,8,20,.55));z-index:51;pointer-events:none}
+
+/* ---- カード ---- */
+.card{position:absolute;width:9em;height:13em}
+.card .c{position:absolute;inset:0;transform-style:preserve-3d}
+.face{position:absolute;inset:0;border-radius:1em;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.front{background:linear-gradient(155deg,#fffef9 0%,var(--paper) 48%,#eee6d3 100%);color:var(--ink);box-shadow:inset 0 0 0 .07em rgba(40,30,10,.12),inset 0 .14em .22em rgba(255,255,255,.95)}
+.front::after{content:"";position:absolute;inset:0;background-image:var(--grain);opacity:.08;mix-blend-mode:multiply;pointer-events:none}
+.front.red{color:var(--suit-red)}
+.idx{position:absolute;left:.75em;top:.55em;display:flex;flex-direction:column;align-items:center;width:1.8em;line-height:1}
+.idx.br{left:auto;top:auto;right:.75em;bottom:.55em;transform:rotate(180deg)}
+.idx b{font-family:var(--f-display);font-weight:400;font-size:2.5em;letter-spacing:-.05em;line-height:.95}
+.idx svg{width:1.45em;height:1.45em;margin-top:.12em;fill:currentColor}
+.pip{position:absolute;width:1.75em;height:1.75em;fill:currentColor}
+.pip.inv{transform:rotate(180deg)}
+.court{position:absolute;inset:1.1em 1.15em;border:.1em solid currentColor;border-radius:.45em;opacity:.95;display:flex;align-items:center;justify-content:center;
+  background:repeating-linear-gradient(135deg,transparent 0 .5em,rgba(29,35,51,.05) .5em .56em)}
+.court b{font-family:var(--f-display);font-weight:400;font-size:7.4em;line-height:1;letter-spacing:-.04em;transform:translateY(.02em)}
+.court svg{position:absolute;width:1.9em;height:1.9em;fill:currentColor;left:50%;margin-left:-.95em}
+.court .t{top:.45em}.court .bt{bottom:.45em;transform:rotate(180deg)}
+.backface{transform:rotateY(180deg);background:radial-gradient(circle at 50% 38%,#2f4a8c,#1a2850);box-shadow:inset 0 0 0 .5em var(--paper),inset 0 0 0 .62em rgba(0,0,0,.22)}
+.backface::before{content:"";position:absolute;inset:.95em;border-radius:.45em;border:.09em solid rgba(242,180,60,.6);
+  background:repeating-linear-gradient(45deg,rgba(242,180,60,.26) 0 .1em,transparent .1em .75em),repeating-linear-gradient(-45deg,rgba(242,180,60,.26) 0 .1em,transparent .1em .75em)}
+.backface::after{content:"";position:absolute;left:50%;top:50%;width:3em;height:3em;margin:-1.5em 0 0 -1.5em;transform:rotate(45deg);border:.12em solid var(--amber);background:#1d2e5f;border-radius:.3em;box-shadow:0 0 0 .35em #1d2e5f}
+.shadowed{filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+
+/* ---- 卓上の配置 ---- */
+.tbl{inset:0;animation-name:tbl}
+@keyframes tbl{0%,25%{opacity:0}30%,82%{opacity:1}87%,100%{opacity:0}}
+.shake{inset:0;opacity:1;animation-name:shake}
+@keyframes shake{0%,60.4%{transform:none}61%{transform:translate(-.9em,.6em)}61.8%{transform:translate(.8em,-.5em)}62.6%{transform:translate(-.5em,.35em)}63.6%{transform:translate(.25em,-.15em)}65%,100%{transform:none}}
+
+.opp{top:1.6em;width:5.2em;height:7.5em;opacity:1}
+.opp .card{font-size:.58em;left:0;top:0;transform-origin:50% 190%}
+.opp .nm{position:absolute;left:-4em;right:-4em;top:8.9em;text-align:center;font-size:1.25em;letter-spacing:.28em;color:var(--muted);font-weight:700;white-space:nowrap}
+.o1{left:17.4em}.o2{left:47.4em}.o3{left:77.4em}
+.opp .card.last{animation:vanish 10s linear infinite both}
+@keyframes vanish{0%,41.9%{opacity:1}42%,87%{opacity:0}87.1%,100%{opacity:1}}
+
+.deck{left:36.5em;top:19.5em;width:9em;height:13em;opacity:1}
+.deck .card:nth-child(1){transform:translate(.7em,.7em)}.deck .card:nth-child(2){transform:translate(.35em,.35em)}
+
+.pile{left:54em;top:19.5em;width:9em;height:13em;opacity:1}
+.pile .u{transform:rotate(9deg) translate(.6em,.3em)}
+.pile .t{transform:rotate(-5deg)}
+
+/* 相手が出す K */
+.kfly{left:54em;top:19.5em;width:9em;height:13em;animation-name:kfly}
+.kfly .c{animation:kflip 10s linear infinite both}
+@keyframes kfly{
+  0%,41.9%{opacity:0;transform:translate(-8em,-17em) scale(.58) rotate(-10deg);filter:drop-shadow(0 .2em .3em rgba(0,0,0,.4));animation-timing-function:cubic-bezier(.25,.6,.3,1)}
+  42%{opacity:1;transform:translate(-8em,-17em) scale(.58) rotate(-10deg);filter:drop-shadow(0 .2em .3em rgba(0,0,0,.4));animation-timing-function:cubic-bezier(.3,.05,.25,1)}
+  46%{opacity:1;transform:translate(-3.6em,-9em) scale(1.32) rotate(-5deg);filter:drop-shadow(0 3.4em 2.2em rgba(0,0,0,.3));animation-timing-function:cubic-bezier(.5,0,.8,.5)}
+  49.2%{opacity:1;transform:translate(0,.25em) scale(1) rotate(3deg);filter:drop-shadow(0 .15em .3em rgba(0,0,0,.5))}
+  50.4%{opacity:1;transform:translate(0,0) scale(1.02) rotate(3deg);filter:drop-shadow(0 .3em .5em rgba(0,0,0,.42))}
+  51.5%,82%{opacity:1;transform:translate(0,0) scale(1) rotate(3deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+  87%,100%{opacity:0;transform:translate(0,0) scale(1) rotate(3deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+}
+@keyframes kflip{0%,42%{transform:perspective(80em) rotateY(180deg);animation-timing-function:cubic-bezier(.3,0,.2,1)}47.5%,100%{transform:perspective(80em) rotateY(0deg)}}
+
+/* 手札 */
+.hand{top:40.5em;width:9em;height:13em}
+.h1{left:39.3em;animation-name:h1}.h2{left:48.2em;animation-name:h2}
+.h1 .c{animation:d1 10s linear infinite both}.h2 .c{animation:d2 10s linear infinite both}
+@keyframes d1{0%,31%{transform:perspective(80em) rotateY(180deg);animation-timing-function:cubic-bezier(.3,0,.2,1)}36.5%,100%{transform:perspective(80em) rotateY(0deg)}}
+@keyframes d2{0%,33.4%{transform:perspective(80em) rotateY(180deg);animation-timing-function:cubic-bezier(.3,0,.2,1)}38.9%,100%{transform:perspective(80em) rotateY(0deg)}}
+@keyframes h1{
+  0%,30.9%{opacity:0;transform:translate(-2.8em,-21em) rotate(0deg);filter:drop-shadow(0 .3em .5em rgba(0,0,0,.4))}
+  31%{opacity:1;transform:translate(-2.8em,-21em) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+  36.5%{opacity:1;transform:translate(0,0) rotate(-5deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+  53%{opacity:1;transform:translate(0,0) rotate(-5deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42));animation-timing-function:ease-out}
+  56%{opacity:1;transform:translate(0,-1.6em) rotate(-5deg);filter:drop-shadow(0 0 1.3em rgba(242,180,60,.6)) drop-shadow(0 1.4em .9em rgba(0,0,0,.3));animation-timing-function:ease-in-out}
+  63%{opacity:1;transform:translate(0,-1.6em) rotate(-5deg);filter:drop-shadow(0 0 1.3em rgba(242,180,60,.6)) drop-shadow(0 1.4em .9em rgba(0,0,0,.3))}
+  67%,82%{opacity:1;transform:translate(0,0) rotate(-5deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+  87%,100%{opacity:0;transform:translate(0,0) rotate(-5deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+}
+@keyframes h2{
+  0%,33.4%{opacity:0;transform:translate(-11.7em,-21em) rotate(0deg);filter:drop-shadow(0 .3em .5em rgba(0,0,0,.4))}
+  33.5%{opacity:1;transform:translate(-11.7em,-21em) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+  38.9%{opacity:1;transform:translate(0,0) rotate(4deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+  53.4%{opacity:1;transform:translate(0,0) rotate(4deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42));animation-timing-function:ease-out}
+  56.4%{opacity:1;transform:translate(0,-1.6em) rotate(4deg);filter:drop-shadow(0 0 1.3em rgba(242,180,60,.6)) drop-shadow(0 1.4em .9em rgba(0,0,0,.3));animation-timing-function:ease-in-out}
+  63%{opacity:1;transform:translate(0,-1.6em) rotate(4deg);filter:drop-shadow(0 0 1.3em rgba(242,180,60,.6)) drop-shadow(0 1.4em .9em rgba(0,0,0,.3))}
+  67.4%,82%{opacity:1;transform:translate(0,0) rotate(4deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+  87%,100%{opacity:0;transform:translate(0,0) rotate(4deg);filter:drop-shadow(0 .35em .55em rgba(0,0,0,.42))}
+}
+
+/* 合計の表示 */
+.sum{left:7em;top:42.5em;animation-name:sum}
+.sum small{display:block;font-size:1.5em;font-weight:700;letter-spacing:.32em;color:var(--muted);margin-bottom:.5em}
+.sum .n{display:flex;align-items:baseline;font-family:var(--f-display);font-size:4.6em;line-height:1;white-space:nowrap}
+.sum .n i{font-style:normal;color:var(--muted);font-size:.7em;padding:0 .1em}
+.sum .eq i{color:inherit}
+.sum .eq{display:inline-flex;align-items:baseline;color:var(--amber);animation:eq 10s linear infinite both;transform-origin:0 70%}
+@keyframes sum{0%,35%{opacity:0;transform:translateX(-1.5em)}40%,82%{opacity:1;transform:none}87%,100%{opacity:0;transform:none}}
+@keyframes eq{0%,51%{opacity:0;transform:scale(.6)}52.6%{opacity:1;transform:scale(1.25)}54%,100%{opacity:1;transform:scale(1)}}
+
+.ptag{left:65.6em;top:21.2em;animation-name:ptag}
+.ptag small{display:block;font-size:1.5em;font-weight:700;letter-spacing:.32em;color:var(--muted);margin-bottom:.4em}
+.ptag b{display:block;font-family:var(--f-display);font-weight:400;font-size:5.6em;line-height:1;color:var(--amber)}
+@keyframes ptag{0%,50%{opacity:0;transform:translateX(-1em)}52%{opacity:1;transform:translateX(0)}82%{opacity:1}87%,100%{opacity:0}}
+.match{left:54em;top:19.5em;width:9em;height:13em;border-radius:1em;border:.22em solid var(--amber);transform:rotate(3deg);animation-name:match}
+.match.m2{animation-name:match2}
+@keyframes match{0%,51%{opacity:0;transform:rotate(3deg) scale(1)}51.1%{opacity:.95;transform:rotate(3deg) scale(1)}57%,100%{opacity:0;transform:rotate(3deg) scale(1.6)}}
+@keyframes match2{0%,53%{opacity:0;transform:rotate(3deg) scale(1)}53.1%{opacity:.8;transform:rotate(3deg) scale(1)}59%,100%{opacity:0;transform:rotate(3deg) scale(1.75)}}
+
+/* ドボンボタン */
+.btn{left:66em;top:43.6em;width:17em;height:6.6em;border-radius:1.2em;background:linear-gradient(180deg,#ee5440,#d63b28);box-shadow:inset 0 .14em 0 rgba(255,255,255,.3),0 .45em 0 var(--dobon-deep),0 1em 1.6em rgba(0,0,0,.45);animation-name:btn}
+.btn span{display:block;font-family:var(--f-display);font-size:3.1em;line-height:2.12;text-align:center;color:#fff;letter-spacing:.06em}
+@keyframes btn{
+  0%,44%{opacity:0;transform:translateY(2.5em)}
+  49%{opacity:1;transform:none}
+  57.6%{opacity:1;transform:none;box-shadow:inset 0 .14em 0 rgba(255,255,255,.3),0 .45em 0 var(--dobon-deep),0 1em 1.6em rgba(0,0,0,.45)}
+  59%{opacity:1;transform:translateY(.38em);box-shadow:inset 0 .14em 0 rgba(255,255,255,.3),0 .07em 0 var(--dobon-deep),0 .3em .6em rgba(0,0,0,.45)}
+  61.5%{opacity:1;transform:none;box-shadow:inset 0 .14em 0 rgba(255,255,255,.3),0 .45em 0 var(--dobon-deep),0 1em 1.6em rgba(0,0,0,.45)}
+  82%{opacity:1;transform:none}
+  87%,100%{opacity:0;transform:none}
+}
+.tap{left:74.5em;top:46.9em;width:7em;height:7em;margin:-3.5em 0 0 -3.5em;border-radius:50%;background:rgba(255,255,255,.55);animation-name:tap}
+@keyframes tap{0%,58.4%{opacity:0;transform:scale(.3)}59%{opacity:.8;transform:scale(.3);animation-timing-function:ease-out}64%,100%{opacity:0;transform:scale(2.6)}}
+
+/* ---- ドボン！の瞬間 ---- */
+.dim{inset:0;background:radial-gradient(70% 80% at 50% 45%,rgba(6,10,24,.35),rgba(6,10,24,.78));animation-name:dim;z-index:20}
+@keyframes dim{0%,60%{opacity:0}63%,80%{opacity:1}86%,100%{opacity:0}}
+.rays{left:50%;top:27em;width:150em;height:150em;margin:-75em 0 0 -75em;border-radius:50%;z-index:21;
+  background:repeating-conic-gradient(from 0deg,rgba(242,180,60,.2) 0 5deg,transparent 5deg 15deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0%,transparent 45%);mask-image:radial-gradient(circle,#000 0%,transparent 45%);animation-name:rays}
+@keyframes rays{0%,60.4%{opacity:0;transform:rotate(0deg) scale(.6)}63%{opacity:1;transform:rotate(3deg) scale(1)}80%{opacity:.9;transform:rotate(14deg) scale(1.05)}86%,100%{opacity:0;transform:rotate(16deg) scale(1.05)}}
+.shock{left:50%;top:27em;width:34em;height:34em;margin:-17em 0 0 -17em;border-radius:50%;border:.25em solid rgba(255,255,255,.5);z-index:22;animation-name:shock}
+@keyframes shock{0%,60.4%{opacity:0;transform:scale(.25)}60.5%{opacity:.85;transform:scale(.25);animation-timing-function:cubic-bezier(.1,.7,.3,1)}69%,100%{opacity:0;transform:scale(4.2)}}
+.flash{inset:0;background:#fff;z-index:23;animation-name:flash}
+@keyframes flash{0%,60.4%{opacity:0}60.7%{opacity:.5}64%,100%{opacity:0}}
+.stamp{left:0;right:0;top:15.5em;text-align:center;z-index:24;animation-name:stamp}
+.stamp div{display:inline-block;font-family:var(--f-display);font-size:15em;line-height:1;color:#fff;background:var(--dobon);padding:.04em .2em .1em;border-radius:.18em;letter-spacing:.04em;
+  box-shadow:inset 0 .03em 0 rgba(255,255,255,.28),0 .09em 0 var(--dobon-deep),0 .35em .5em rgba(0,0,0,.5)}
+@keyframes stamp{
+  0%,60.4%{opacity:0;transform:scale(2.9) rotate(-2deg);animation-timing-function:cubic-bezier(.2,.9,.25,1)}
+  62.2%{opacity:1;transform:scale(.95) rotate(-8deg)}
+  63.6%{opacity:1;transform:scale(1.03) rotate(-8deg)}
+  65%,80%{opacity:1;transform:scale(1) rotate(-8deg);animation-timing-function:ease-in}
+  85%,100%{opacity:0;transform:scale(.94) rotate(-8deg)}
+}
+.copy{left:0;right:0;top:calc(var(--u)*38.2);text-align:center;z-index:24;font-weight:700;font-size:calc(var(--u)*2.5);letter-spacing:.22em;animation-name:copy}
+.copy em{font-style:normal;color:var(--amber)}
+@keyframes copy{0%,68%{opacity:0;transform:translateY(1.4em)}72.5%{opacity:1;transform:none}80%{opacity:1;animation-timing-function:ease-in}85%,100%{opacity:0;transform:translateY(-.4em)}}
+
+/* ---- タイトル（ループの始点と終点） ---- */
+.lockup{left:0;right:0;top:12.2em;text-align:center;z-index:30;opacity:1;animation:none}
+.lockup h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:21em;line-height:1;letter-spacing:.05em;display:flex;justify-content:center;filter:drop-shadow(0 .06em 0 rgba(0,0,0,.35)) drop-shadow(0 .2em .3em rgba(0,0,0,.35))}
+.g{display:block;overflow:hidden;padding:.02em .015em .06em;line-height:1.02}
+.g i{display:block;font-style:normal;color:var(--text);animation:gl 10s linear infinite both}
+.g.r i{color:var(--dobon)}
+@keyframes gl{
+  0%,22%{transform:none;animation-timing-function:cubic-bezier(.6,0,.9,.4)}
+  27%{transform:translateY(-118%)}
+  27.01%,87%{transform:translateY(118%);animation-timing-function:cubic-bezier(.15,.8,.2,1)}
+  94%,100%{transform:none}
+}
+.rule{left:50%;width:56em;margin-left:-28em;top:37.2em;height:.1em;background:linear-gradient(90deg,transparent,rgba(242,180,60,.7),transparent);z-index:30;opacity:1;animation:rule 10s linear infinite both}
+@keyframes rule{0%,22%{opacity:1;transform:scaleX(1)}27%{opacity:0;transform:scaleX(.2)}27.01%,88%{opacity:0;transform:scaleX(.2)}95%,100%{opacity:1;transform:scaleX(1)}}
+.tag{left:0;right:0;top:calc(var(--u)*39.2);text-align:center;z-index:30;font-weight:700;font-size:calc(var(--u)*2.6);letter-spacing:.42em;color:var(--muted);padding-left:.42em;opacity:1;animation:tg 10s linear infinite both}
+@keyframes tg{0%,22%{opacity:1;transform:none}26%{opacity:0;transform:translateY(-.6em)}26.01%,89%{opacity:0;transform:translateY(.8em)}95%,100%{opacity:1;transform:none}}
+.ver{left:0;right:0;top:calc(var(--u)*45.2);text-align:center;z-index:30;font-size:calc(var(--u)*1.5);letter-spacing:.5em;padding-left:.5em;color:rgba(157,176,212,.7);font-weight:700;opacity:1;animation:tg 10s linear infinite both}
+
+@media (prefers-reduced-motion:reduce){.a,.a *,.card .c,.g i{animation-play-state:paused!important}}
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="sp" viewBox="0 0 100 100"><path d="M50 4C58 24 91 38 91 62C91 77 80 85 68 85C61 85 56 82 53 77C54 86 57 92 63 97H37C43 92 46 86 47 77C44 82 39 85 32 85C20 85 9 77 9 62C9 38 42 24 50 4Z"/></symbol>
+  <symbol id="cl" viewBox="0 0 100 100"><circle cx="50" cy="28" r="22"/><circle cx="27" cy="63" r="22"/><circle cx="73" cy="63" r="22"/><path d="M50 42C50 76 46 89 35 97H65C54 89 50 76 50 42Z"/></symbol>
+  <symbol id="ht" viewBox="0 0 100 100"><path d="M50 93C19 67 5 51 5 32C5 17 16 7 28 7C38 7 46 13 50 22C54 13 62 7 72 7C84 7 95 17 95 32C95 51 81 67 50 93Z"/></symbol>
+  <symbol id="di" viewBox="0 0 100 100"><path d="M50 2C60 24 76 40 93 50C76 60 60 76 50 98C40 76 24 60 7 50C24 40 40 24 50 2Z"/></symbol>
+</defs></svg>
+
+<div class="stage" role="img" aria-label="トランプゲーム「ドボン」の紹介アニメーション。相手が場に出したカードの数字と、自分の手札の合計が一致して、ドボンを宣言する。">
+  <div class="a felt"></div><div class="a rim"></div><div class="a light"></div>
+
+  <div class="a shake"><div class="a tbl">
+    <div class="a opp o1"><span class="nm">CPU 1</span><i data-opp="4"></i></div>
+    <div class="a opp o2"><span class="nm">CPU 2</span><i data-opp="4" data-last="1"></i></div>
+    <div class="a opp o3"><span class="nm">CPU 3</span><i data-opp="5"></i></div>
+
+    <div class="a deck"><div class="card shadowed"><div class="c"><div class="face backface" style="transform:none"></div></div></div><div class="card shadowed"><div class="c"><div class="face backface" style="transform:none"></div></div></div><div class="card shadowed"><div class="c"><div class="face backface" style="transform:none"></div></div></div></div>
+    <div class="a pile"><div class="card shadowed u" data-card="3,di,up"></div><div class="card shadowed t" data-card="9,sp,up"></div></div>
+
+    <div class="a match"></div><div class="a match m2"></div>
+    <div class="a kfly"><div class="card" data-card="K,sp,flip"></div></div>
+    <div class="a ptag"><small>場札</small><b>13</b></div>
+
+    <div class="a hand h1"><div class="card" data-card="6,cl,flip"></div></div>
+    <div class="a hand h2"><div class="card" data-card="7,di,flip"></div></div>
+    <div class="a sum"><small>手札の合計</small><div class="n">6<i>＋</i>7<span class="eq"><i>＝</i>13</span></div></div>
+
+    <div class="a btn"><span>ドボン！</span></div><div class="a tap"></div>
+  </div></div>
+
+  <div class="a dim"></div><div class="a rays"></div><div class="a shock"></div><div class="a flash"></div>
+  <div class="a stamp"><div>ドボン！</div></div>
+  <div class="a copy">手札の合計と<em>同じ数字</em>が出たら、宣言。</div>
+
+  <div class="a lockup"><h1 aria-label="ドボン"><span class="g" style="--d:0s"><i style="animation-delay:0s">ド</i></span><span class="g r"><i style="animation-delay:.07s">ボ</i></span><span class="g"><i style="animation-delay:.14s">ン</i></span></h1></div>
+  <div class="a rule"></div>
+  <div class="a tag">手札の合計で勝つ、トランプゲーム</div>
+  <div class="a ver">ローカルルール版</div>
+
+  <div class="a grain"></div><div class="a vig"></div>
+</div>
+
+<script>
+(function(){
+  var NAME={sp:'sp',cl:'cl',ht:'ht',di:'di'};
+  function svg(id,cls){return '<svg class="'+cls+'" viewBox="0 0 100 100" aria-hidden="true"><use href="#'+id+'"/></svg>'}
+  var X={L:38,C:50,R:62};
+  var LAY={
+    3:[['C',26],['C',50],['C',74]],
+    6:[['L',23],['R',23],['L',50],['R',50],['L',77],['R',77]],
+    7:[['L',23],['R',23],['C',36.5],['L',50],['R',50],['L',77],['R',77]],
+    9:[['L',20],['R',20],['L',40],['R',40],['C',50],['L',60],['R',60],['L',80],['R',80]]
+  };
+  function pips(r,s){
+    var out='';
+    LAY[r].forEach(function(p){
+      var left=X[p[0]],top=p[1];
+      out+='<svg class="pip'+(top>50?' inv':'')+'" style="left:calc('+left+'% - .875em);top:calc('+top+'% - .875em)" viewBox="0 0 100 100"><use href="#'+s+'"/></svg>';
+    });
+    return out;
+  }
+  function front(r,s){
+    var red=(s==='ht'||s==='di');
+    var idx='<div class="idx"><b>'+r+'</b>'+svg(s,'')+'</div><div class="idx br"><b>'+r+'</b>'+svg(s,'')+'</div>';
+    var body=(r==='K')
+      ? '<div class="court">'+svg(s,'t')+'<b>K</b>'+svg(s,'bt')+'</div>'
+      : pips(r,s);
+    return '<div class="face front'+(red?' red':'')+'">'+idx+body+'</div>';
+  }
+  document.querySelectorAll('[data-card]').forEach(function(el){
+    var a=el.dataset.card.split(','),r=a[0],s=a[1],mode=a[2];
+    var f=front(r,s);
+    if(mode==='flip')f+='<div class="face backface"></div>';
+    el.innerHTML='<div class="c"'+(mode==='up'?' style="animation:none;transform:none"':'')+'>'+f+'</div>';
+  });
+  document.querySelectorAll('[data-opp]').forEach(function(el){
+    var n=+el.dataset.opp,h='';
+    for(var i=0;i<n;i++){
+      var rot=(i-(n-1)/2)*7;
+      var last=(el.dataset.last&&i===Math.round((n-1)/2))?' last':'';
+      h+='<div class="card shadowed'+last+'" style="transform:rotate('+rot+'deg)"><div class="c" style="animation:none"><div class="face backface" style="transform:none"></div></div></div>';
+    }
+    el.outerHTML='<div style="position:absolute;left:0;top:0;width:5.2em;height:7.5em">'+h+'</div>';
+  });
+})();
+</script>
+</body>
+</html>
