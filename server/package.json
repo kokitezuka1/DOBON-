@@ -1,0 +1,9 @@
+{
+  "name": "dobon-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ドボン オンライン対戦サーバー（権威サーバー方式）",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "dependencies": { "ws": "8.18.0" }
+}
