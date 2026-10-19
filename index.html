@@ -71,6 +71,12 @@ button:disabled{cursor:default;opacity:.4}
 .seg.mode{align-self:stretch}
 .seg.mode button{flex:1;padding:12px;font-size:14px}
 .hint{margin:0;font-size:12.5px;color:var(--muted);text-wrap:pretty}
+.roomcode{font-family:var(--f-display);font-size:48px;letter-spacing:.2em;line-height:1.1}
+.members{display:flex;flex-direction:column;gap:6px}
+.member{display:flex;gap:8px;align-items:center;padding:9px 12px;border-radius:10px;background:rgba(0,0,0,.2)}
+.member b{flex:1;font-weight:700}
+.member em{font-style:normal;font-size:11px;color:var(--amber)}
+.netmsg{color:#ff9d92;font-size:13px;min-height:1em;margin:0}
 .x{width:36px;height:36px;border-radius:10px;color:var(--muted);flex:none;border:1px solid var(--line)}
 .add{align-self:flex-start;padding:9px 14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
@@ -333,6 +339,8 @@ if(!S||!Array.isArray(S.players)) S=JSON.parse(JSON.stringify(DEFAULTS));
 if(!RULES[S.mode])S.mode='local';
 const save=()=>{try{localStorage.setItem('dobon-settings',JSON.stringify(S))}catch(e){}};
 
+const ONLINE_OK=/^https?:$/.test(location.protocol)&&!/github\.io$/.test(location.hostname);
+let net=null;
 let G=null, gen=0, winSeq=0, menuOpen=false, rulesOpen=false, quitArm=false, freshTop=false;
 const later=(fn,ms)=>{const g=gen;setTimeout(()=>{if(G&&g===gen)fn()},ms)};
 
@@ -375,9 +383,9 @@ function newRound(){
   startTurn();
 }
 const N=()=>G.players.length;
-const humans=()=>G.players.map((p,i)=>p.cpu?-1:i).filter(i=>i>=0);
+const humans=()=>G.online?[G.me]:G.players.map((p,i)=>p.cpu?-1:i).filter(i=>i>=0);
 const multi=()=>humans().length>1;
-function viewer(){const h=humans();if(!h.length)return -1;if(h.length===1)return h[0];return G.revealed}
+function viewer(){if(G&&G.online)return G.me;const h=humans();if(!h.length)return -1;if(h.length===1)return h[0];return G.revealed}
 function step(i,k){for(let t=0;t<k;t++)i=(i+G.dir+N())%N();return i}
 function log(t){G.log.unshift(t);G.log.length=Math.min(G.log.length,4)}
 
@@ -563,6 +571,47 @@ function endRound(r){
   render();
 }
 
+/* ---------- online ---------- */
+const netSend=o=>{if(net&&net.ws&&net.ws.readyState===1)net.ws.send(JSON.stringify(o))};
+const netSaved=()=>{try{return JSON.parse(sessionStorage.getItem('dobon-net'))}catch(e){return null}};
+function netOpen(room,keep){
+  netClose(keep);
+  const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  const me={ws,room:'',lobby:null,msg:'接続中…',retry:0};net=me;
+  ws.onopen=()=>{const sv=netSaved();me.msg='';netSend({t:'join',name:(S.netName||'').trim()||'名無し',room,token:sv&&sv.room===room?sv.token:undefined});render()};
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}netMsg(me,m)};
+  ws.onclose=()=>{
+    if(net!==me)return;
+    me.ws=null;
+    if(me.room&&me.retry<8){me.retry++;me.msg='再接続中…';render();setTimeout(()=>{if(net===me)netOpen(me.room,true)},2000)}
+    else{net=null;if(G&&G.online)G=null;toast('接続が切れました','bad');render()}
+  };
+  render();
+}
+function netClose(keep){const n=net;net=null;if(n&&n.ws){try{n.ws.onclose=null;n.ws.close()}catch(e){}}if(!keep){G=null;try{sessionStorage.removeItem('dobon-net')}catch(e){}}}
+function netMsg(me,m){
+  if(net!==me)return;
+  switch(m.t){
+    case 'hello':me.room=m.room;me.retry=0;try{sessionStorage.setItem('dobon-net',JSON.stringify({room:m.room,token:m.token}))}catch(e){}break;
+    case 'lobby':me.lobby=m;G=null;menuOpen=false;render();break;
+    case 'state':{
+      const old=G&&G.online?G:null,v=m.view;v.online=true;
+      const mine=v.turn===v.me&&v.phase==='play';
+      v.sel=old&&mine&&v.players[v.me].hand.some(c=>c.id===old.sel)?old.sel:null;
+      v.ui=old&&v.sel!=null&&old.ui==='suit'&&mine?'suit':null;
+      const ot=old&&old.pile[old.pile.length-1],nt=v.pile[v.pile.length-1];
+      freshTop=!!(old&&nt&&(!ot||ot.id!==nt.id||old.round!==v.round));
+      G=v;me.lobby=null;render();break;
+    }
+    case 'toast':toast(m.text,m.cls);break;
+    case 'flash':flash(m.text,m.sub);break;
+    case 'err':
+      toast(m.msg,'bad');
+      if(!me.room){me.msg=m.msg;netClose();render()}
+      break;
+  }
+}
+
 /* ---------- UI helpers ---------- */
 function toast(t,cls=''){
   const el=document.createElement('div');el.className='toast '+cls;el.textContent=t;
@@ -613,8 +662,36 @@ function render(){
   renderOverlays();
 }
 
+function lobbyHTML(){
+  const L=net.lobby,host=L.members.find(m=>m.me).host,s=L.S;
+  const sel=(id,label,opts,v)=>`<label class="opt">${label}<select id="${id}" ${host?'':'disabled'}>${opts.map(([val,t])=>`<option value="${val}" ${String(v)===String(val)?'selected':''}>${t}</option>`).join('')}</select></label>`;
+  return `<div class="brand"><h1>ドボン<span>！</span></h1><p>オンライン対戦</p></div>
+  <section class="panel"><h2>部屋コード</h2><div class="roomcode">${esc(L.room)}</div>
+    <p class="hint">友達にコードを伝えるか、招待リンクを送ってください</p>
+    <div class="startrow"><button class="btn" data-act="netcopy">招待リンクをコピー</button></div></section>
+  <section class="panel"><h2>メンバー（${L.members.length}/6人）</h2><div class="members">${L.members.map(m=>`<div class="member"><b>${esc(m.name)}${m.me?'（あなた）':''}</b>${m.host?'<em>ホスト</em>':''}${m.cpu?'<em>CPU</em>':''}</div>`).join('')}</div>
+    ${host?`<div class="startrow"><button class="btn" data-act="netaddcpu" ${L.members.length>=6?'disabled':''}>＋ CPUを追加</button><button class="btn" data-act="netdelcpu" ${L.members.some(m=>m.cpu)?'':'disabled'}>－ CPUを減らす</button></div>`:''}</section>
+  <section class="panel"><h2>設定${host?'':'（ホストが決めます）'}</h2><div class="opts">
+    ${sel('l-mode','ルール',[['local','ローカル'],['general','一般']],s.mode)}
+    ${sel('l-games','ゲーム数',[1,3,5,10,0].map(v=>[v,v?v+'ゲーム':'無制限']),s.games)}
+    ${sel('l-hand','配る枚数',[[5,'5枚'],[7,'7枚']],s.hand)}
+    ${sel('l-jokers','ジョーカー',[0,1,2].map(v=>[v,v+'枚']),s.jokers)}
+    ${sel('l-speed','CPUの速さ',[['slow','ゆっくり'],['normal','ふつう'],['fast','はやい']],s.speed)}
+  </div><label class="check"><input type="checkbox" id="l-drawplay" ${s.drawPlay?'checked':''} ${host?'':'disabled'}>引いたカードが出せるなら、そのまま出してよい</label></section>
+  <div class="startrow"><button class="btn" data-act="netleave">部屋を出る</button>${host?`<button class="btn primary" data-act="netstart" ${L.canStart?'':'disabled'}>${L.canStart?'対戦スタート':'2人以上で開始'}</button>`:'<span class="hint" style="align-self:center">ホストの開始を待っています…</span>'}</div>`;
+}
+function onlineSection(){
+  const q=new URLSearchParams(location.search).get('room')||'';
+  return `<section class="panel"><h2>オンライン対戦</h2>
+    <div class="prow"><input id="on-name" value="${esc(S.netName||'')}" placeholder="ニックネーム" maxlength="10" aria-label="ニックネーム"></div>
+    <div class="startrow"><button class="btn" data-act="netcreate">部屋をつくる</button>
+    <input id="on-room" value="${esc(q.toUpperCase().slice(0,4))}" placeholder="部屋コード" maxlength="4" aria-label="部屋コード" style="width:7em;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--ink);font:inherit;text-transform:uppercase">
+    <button class="btn" data-act="netjoin">参加</button></div>
+    <p class="netmsg">${esc(net&&net.msg||'')}</p></section>`;
+}
 function renderSetup(){
   const el=document.getElementById('setup');
+  if(net&&net.lobby){el.innerHTML=lobbyHTML();return}
   const mk=(rank,suit)=>cardHTML({rank,suit,joker:false});
   el.innerHTML=`
   <div class="hero">
@@ -646,6 +723,7 @@ function renderSetup(){
     <label class="check"><input type="checkbox" id="o-drawplay" ${S.drawPlay?'checked':''}>引いたカードが出せるなら、そのまま出してよい</label>
   </section>
   <div class="startrow"><button class="btn" data-act="rules">ルール</button><button class="btn primary" data-act="start">対戦スタート</button></div>
+  ${ONLINE_OK?onlineSection():''}
   </div>`;
 }
 
@@ -726,7 +804,9 @@ function renderOverlays(){
     if(G.ui==='suit'){
       html=`<div class="ov"><div class="sheet"><h3>8：柄を指定</h3><p class="sub">次の人はこの柄か8を出します</p><div class="suits">${SUITS.map(s=>`<button class="${isRed(s)?'r':''}" data-act="suit" data-s="${s}">${suitSV(s)}<span>${SNAME[s]}</span></button>`).join('')}</div><button class="btn" data-act="cancelsuit">やめる</button></div></div>`;
     }
-    if(G.phase==='return'){
+    if(G.online&&G.phase==='return'&&G.dobon.target!==G.me){
+      html=`<div class="ov"><div class="sheet"><h3><span class="d">${esc(G.players[G.dobon.by].name)}のドボン！</span></h3><p class="sub">${esc(G.players[G.dobon.target].name)}がドボン返しするか選んでいます…</p></div></div>`;
+    }else if(G.phase==='return'){
       const d=G.dobon,t=G.players[d.target];
       html=`<div class="ov"><div class="sheet"><h3><span class="d">${esc(G.players[d.by].name)}のドボン！</span></h3><p class="sub">${esc(t.name)}が出した ${label(d.card)}（${d.value}）にドボン</p>
       <div><b>${esc(t.name)}</b>さん、ドボン返ししますか？</div>
@@ -735,7 +815,7 @@ function renderOverlays(){
     }
     if(G.phase==='result')html=resultHTML();
     if(G.phase==='final')html=finalHTML();
-    if(menuOpen)html+=`<div class="ov" style="z-index:45"><div class="sheet"><h3>メニュー</h3><div class="row"><button class="btn" data-act="quit">${quitArm?'もう一度押すと対戦を終了':'対戦をやめて設定に戻る'}</button><button class="btn" data-act="closemenu">続ける</button></div></div></div>`;
+    if(menuOpen)html+=`<div class="ov" style="z-index:45"><div class="sheet"><h3>メニュー</h3><div class="row"><button class="btn" data-act="quit">${G.online?(quitArm?'もう一度押すと対戦から抜ける（CPUが代わりを務めます）':'対戦から抜ける'):(quitArm?'もう一度押すと対戦を終了':'対戦をやめて設定に戻る')}</button><button class="btn" data-act="closemenu">続ける</button></div></div></div>`;
   }
   if(rulesOpen)html+=rulesHTML();
   o.innerHTML=html;
@@ -754,7 +834,7 @@ function resultHTML(){
     const calc=w?'勝ち — 0点':`合計 ${x.base}${x.n2?` × ${2**x.n2}（2が${x.n2}枚）`:''}${x.dbl?' × 2（ドボンされた）':''} = ${x.pts}点${x.recv?'（受け取った手札込み）':''}`;
     return `<div class="rr ${w?'w':''} ${l?'l':''}"><div class="nm">${esc(p.name)}<small>${w?'勝ち':l?'ドボンされた':''}</small></div><div class="minihand">${sortHand(x.cards).map(c=>cardHTML(c,'xs')).join('')||'<span style="color:var(--muted);font-size:12px">なし</span>'}</div><div class="pts">+${x.pts}<b>${p.score}点</b></div><div class="calc">${calc}</div></div>`;
   }).join('')}</div>
-  <div class="row">${last?'<button class="btn primary" data-act="final">最終結果を見る</button>':`<button class="btn primary" data-act="next">次のゲームへ</button>${G.total?'':'<button class="btn" data-act="final">ここで終了</button>'}`}</div></div></div>`;
+  <div class="row">${G.online&&G.host!==G.me?'<span class="hint">ホストの操作を待っています…</span>':last?'<button class="btn primary" data-act="final">最終結果を見る</button>':`<button class="btn primary" data-act="next">次のゲームへ</button>${G.total?'':'<button class="btn" data-act="final">ここで終了</button>'}`}</div></div></div>`;
 }
 function finalHTML(){
   const order=G.players.map((p,i)=>({p,i})).sort((a,b)=>a.p.score-b.p.score);
@@ -762,7 +842,7 @@ function finalHTML(){
   const champs=order.filter(x=>x.rk===1).map(x=>esc(x.p.name)).join('・');
   return `<div class="ov"><div class="sheet"><h3>${champs}の優勝！</h3><p class="sub">${G.round}ゲーム終了 — 点数が少ない人が勝ち</p>
   <div class="rank">${order.map(x=>`<div><b>${x.rk}</b><span>${esc(x.p.name)}</span>${x.p.score}点</div>`).join('')}</div>
-  <div class="row"><button class="btn primary" data-act="again">同じ設定でもう一度</button><button class="btn" data-act="tosetup">設定に戻る</button></div></div></div>`;
+  <div class="row">${G.online&&G.host!==G.me?'<span class="hint">ホストの操作を待っています…</span>':`<button class="btn primary" data-act="again">同じ設定でもう一度</button><button class="btn" data-act="tosetup">${G.online?'部屋に戻る':'設定に戻る'}</button>`}${G.online?'<button class="btn" data-act="quit">対戦から抜ける</button>':''}</div></div></div>`;
 }
 function rulesHTML(){
   const mode=G?G.mode:S.mode;
@@ -800,6 +880,7 @@ function humanPlay(id){
   const vw=viewer();if(vw<0||vw!==G.turn||G.phase!=='play')return;
   const c=G.players[vw].hand.find(x=>x.id===id);if(!c||!playable(c,vw))return;
   if(fxOf(c)==='suit'){G.sel=id;G.ui='suit';render();return}
+  if(G.online){netSend({t:'play',id});G.sel=null;return}
   playCard(vw,id);
 }
 document.addEventListener('click',e=>{
@@ -815,20 +896,34 @@ document.addEventListener('click',e=>{
     case 'closerules':rulesOpen=false;render();break;
     case 'menu':menuOpen=true;quitArm=false;render();break;
     case 'closemenu':menuOpen=false;render();break;
-    case 'quit':if(!quitArm){quitArm=true;render()}else{gen++;G=null;menuOpen=false;render()}break;
+    case 'quit':if(!quitArm){quitArm=true;render()}else{if(G.online){netSend({t:'leave'});netClose()}gen++;G=null;menuOpen=false;render()}break;
     case 'card':{const id=+b.dataset.id;const vw=viewer();
       if(G.sel===id&&vw===G.turn&&G.phase==='play')humanPlay(id);else{G.sel=id;render()}break}
     case 'play':if(G.sel!=null)humanPlay(G.sel);break;
-    case 'draw':{const vw=viewer();if(vw===G.turn&&G.phase==='play')drawAction(vw);break}
-    case 'suit':{const vw=viewer();if(G.ui==='suit'&&vw===G.turn&&G.phase==='play')playCard(vw,G.sel,b.dataset.s);break}
+    case 'draw':{const vw=viewer();if(vw===G.turn&&G.phase==='play'){if(G.online)netSend({t:'draw'});else drawAction(vw)}break}
+    case 'suit':{const vw=viewer();if(G.ui==='suit'&&vw===G.turn&&G.phase==='play'){if(G.online){netSend({t:'play',id:G.sel,suit:b.dataset.s});G.ui=null;G.sel=null}else playCard(vw,G.sel,b.dataset.s)}break}
     case 'cancelsuit':G.ui=null;render();break;
-    case 'dobon':declareDobon(i);break;
+    case 'dobon':if(G.online)netSend({t:'dobon'});else declareDobon(i);break;
     case 'uncover':G.revealed=G.turn;G.phase='play';render();break;
-    case 'ret':if(G.phase==='return'){G.phase='wait';resolveReturn(b.dataset.v==='1')}break;
-    case 'next':newRound();break;
-    case 'final':G.phase='final';render();break;
-    case 'again':newMatch();break;
-    case 'tosetup':gen++;G=null;render();break;
+    case 'ret':if(G.phase==='return'){if(G.online)netSend({t:'ret',v:b.dataset.v==='1'});else{G.phase='wait';resolveReturn(b.dataset.v==='1')}}break;
+    case 'next':if(G.online)netSend({t:'next'});else newRound();break;
+    case 'final':if(G.online)netSend({t:'final'});else{G.phase='final';render()}break;
+    case 'again':if(G.online)netSend({t:'again'});else newMatch();break;
+    case 'tosetup':if(G.online)netSend({t:'tolobby'});else{gen++;G=null;render()}break;
+    case 'netcreate':case 'netjoin':{
+      const nm=document.getElementById('on-name').value.trim();
+      if(!nm){toast('ニックネームを入れてください','bad');break}
+      S.netName=nm;save();
+      const rc=document.getElementById('on-room').value.trim().toUpperCase();
+      if(a==='netjoin'&&rc.length!==4){toast('部屋コード(4文字)を入れてください','bad');break}
+      netOpen(a==='netjoin'?rc:'');break}
+    case 'netleave':netSend({t:'leave'});netClose();render();break;
+    case 'netaddcpu':netSend({t:'addcpu'});break;
+    case 'netdelcpu':netSend({t:'delcpu'});break;
+    case 'netstart':netSend({t:'start'});break;
+    case 'netcopy':{
+      const url=location.origin+location.pathname+'?room='+net.room;
+      (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('招待リンクをコピーしました'),()=>toast(url));break}
   }
 });
 document.addEventListener('keydown',e=>{
@@ -836,9 +931,15 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('input',e=>{
   if(e.target.dataset.name!=null){S.players[+e.target.dataset.name].name=e.target.value;save()}
+  else if(e.target.id==='on-name'){S.netName=e.target.value;save()}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(/^l-/.test(t.id||'')){
+    const g=id=>document.getElementById(id);
+    netSend({t:'settings',mode:g('l-mode').value,games:+g('l-games').value,hand:+g('l-hand').value,jokers:+g('l-jokers').value,speed:g('l-speed').value,drawPlay:g('l-drawplay').checked});
+    return;
+  }
   if(t.id==='o-games')S.games=+t.value;
   else if(t.id==='o-hand')S.hand=+t.value;
   else if(t.id==='o-jokers')S.jokers=+t.value;
@@ -849,6 +950,7 @@ document.addEventListener('change',e=>{
 });
 window.addEventListener('resize',fitHand);
 render();
+if(ONLINE_OK){const sv=netSaved();if(sv&&sv.room)netOpen(sv.room,true)}
 })();
 </script>
 
