@@ -9,7 +9,7 @@
 ## 現状
 
 - `index.html` 1ファイルだけで完結（HTML / CSS / JS をすべてインライン、ビルドなし、外部ライブラリなし）
-- 外部依存は Google Fonts（Dela Gothic One, Zen Kaku Gothic New）のみ。読めなくてもフォールバックで動く
+- 外部依存は Google Fonts（Shippori Mincho, Cormorant Garamond, Zen Kaku Gothic New）のみ。読めなくてもフォールバックで動く
 - 開き方：ブラウザで `index.html` を開くだけ。ローカルサーバーも不要
 - 元は claude.ai の Artifact として公開していたもの。Artifact のホストが付けていた `<!doctype>`・`<head>`・基本リセット CSS（`body{margin:0}`、`[hidden]{display:none!important}`、`:root` のセーフエリア余白）を、単体で動くよう `index.html` に足してある
 
@@ -157,7 +157,7 @@ const RULES={
 - 見た目は深い緑のフェルト台に、アイボリーのカードと真鍮色（`--amber`）の細い線を合わせた、落ち着いたクラシック調の1色テーマ（ダークのみ）。赤系はドボンと赤い柄だけ。色はすべて `:root` のCSS変数。派手な色・立体的なボタン・大きな角丸は使わない
 - カードの絵柄・点（ピップ）・ジョーカーの星は、`<body>` 先頭の SVG `<symbol>`（`sp` `cl` `ht` `di` `st`）を `cardHTML()` が `<use>` で呼ぶ。カードの中身はすべて em 指定で、`--cw`（カード幅）を変えれば大きさが変わる
 - 紹介アニメーションは `intro.html`（10秒ループ。始点と終点がタイトルなのでつなぎ目が出ない）
-- 見出しは Shippori Mincho（明朝）、カードの数字は Cormorant Garamond、本文は Zen Kaku Gothic New。`intro.html` だけは以前の紺×Dela Gothic One のまま
+- 見出しは Shippori Mincho（明朝）、カードの数字は Cormorant Garamond、本文は Zen Kaku Gothic New。`intro.html` も同じ配色・書体
 - スマホ幅（約400px）でも横スクロールしないこと。手札が多いときはカードを重ねて表示する（`fitHand()`）
 
 ## オーナーについて
