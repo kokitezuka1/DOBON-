@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 部屋の公開状態は、部屋コードを知っているログイン済みの人だけが1件ずつ読める。書き込みはすべて Cloud Functions 経由。
+    match /rooms/{code} {
+      allow get: if request.auth != null;
+      allow list, write: if false;
+
+      // 手札は本人だけが読める
+      match /hands/{uid} {
+        allow get: if request.auth != null && request.auth.uid == uid;
+        allow list, write: if false;
+      }
+      // サーバー専用（山札・全員の手札）
+      match /priv/{doc} {
+        allow read, write: if false;
+      }
+    }
+  }
+}

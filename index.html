@@ -298,36 +298,6 @@ button:disabled{cursor:default;opacity:.4}
 .toast{border-radius:6px}
 #flash .stamp{font-size:clamp(44px,15vw,130px);white-space:nowrap;animation-name:stampc}
 @keyframes stampc{0%{transform:scale(2.4) rotate(-1deg);opacity:0}38%{transform:scale(.96) rotate(-3deg);opacity:1}55%{transform:scale(1.02) rotate(-3deg)}100%{transform:scale(1) rotate(-3deg)}}
-
-/* ---------- Presence: light, shadow, thinking, flights ---------- */
-body{background:radial-gradient(52% 44% at 50% 46%,rgba(255,226,160,.11),transparent 72%),radial-gradient(110% 80% at 50% 38%,var(--felt-hi),var(--felt) 55%,var(--edge));background-color:var(--edge);background-attachment:fixed}
-.pile::before,.deck::before{content:"";position:absolute;left:6%;right:-4%;bottom:-3%;height:16%;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.5),transparent 70%);filter:blur(7px);pointer-events:none;z-index:-1}
-.deck::before{bottom:calc(1.6em + 2px)}
-.card:not(.back)::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,0) 34%,rgba(0,0,0,.05) 100%);opacity:.4}
-.hand .card{box-shadow:inset 0 0 0 .07em rgba(40,30,10,.14),inset 0 .14em .22em rgba(255,255,255,.95),-.8em .3em 1em -.3em rgba(0,0,0,.4),0 .45em 1em rgba(0,0,0,.32)}
-.hand .card.sel{box-shadow:inset 0 0 0 .07em rgba(40,30,10,.14),inset 0 .14em .22em rgba(255,255,255,.95),0 1.6em 1.8em rgba(0,0,0,.4)}
-.hand .card.sel.ok{box-shadow:0 0 0 2px var(--amber),0 1.6em 1.8em rgba(0,0,0,.42)}
-.pile .topc.fresh{animation:none}
-#game.impact{animation:impact .8s cubic-bezier(.2,.7,.2,1)}
-@keyframes impact{0%{transform:scale(1.022);filter:brightness(1.25)}18%{transform:scale(.994);filter:brightness(.9)}100%{transform:none;filter:none}}
-.seat.bump .mbs{animation:bump .4s ease-out}
-@keyframes bump{30%{transform:translateY(-3px) scale(1.12)}}
-.seat .sn em.th{color:var(--muted);font-weight:500;letter-spacing:.08em;margin-left:auto;padding-right:0}
-.seat .sn em.th b{font-weight:500;animation:dots 1.3s infinite}
-.seat .sn em.th b:nth-child(2){animation-delay:.2s}.seat .sn em.th b:nth-child(3){animation-delay:.4s}
-@keyframes dots{0%,70%,100%{opacity:.2}35%{opacity:1}}
-.seat.think .mb{animation:sway 2.2s ease-in-out infinite}
-.seat.think .mb:nth-child(2n){animation-delay:.35s}.seat.think .mb:nth-child(3n){animation-delay:.7s}
-.seat.think .mb:nth-child(4){animation:peek 2.6s ease-in-out infinite}
-@keyframes sway{50%{transform:translateY(-1.5px) rotate(2deg)}}
-@keyframes peek{0%,55%,100%{transform:none}70%,85%{transform:translateY(-5px) rotate(-4deg)}}
-#fxl{position:fixed;inset:0;pointer-events:none;z-index:35;overflow:hidden}
-.ghost{position:absolute;left:0;top:0;will-change:transform,filter}
-.ghost .gc{position:absolute;inset:0;transform-style:preserve-3d}
-.ghost .gf,.ghost .gb{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.ghost .gb{transform:rotateY(180deg)}
-.ghost .card{position:absolute;left:0;top:0;box-shadow:inset 0 0 0 .07em rgba(40,30,10,.14),inset 0 .14em .22em rgba(255,255,255,.95)}
-.ghost .card.back{box-shadow:inset 0 0 0 .5em var(--card),inset 0 0 0 .62em rgba(0,0,0,.22)}
 </style>
 </head>
 <body>
@@ -369,8 +339,9 @@ if(!S||!Array.isArray(S.players)) S=JSON.parse(JSON.stringify(DEFAULTS));
 if(!RULES[S.mode])S.mode='local';
 const save=()=>{try{localStorage.setItem('dobon-settings',JSON.stringify(S))}catch(e){}};
 
+window.FBReady=new Promise(r=>{window.__fbResolve=r});
 const ONLINE_OK=/^https?:$/.test(location.protocol)&&!/github\.io$/.test(location.hostname);
-let net=null;
+let net=null,netErr='';
 let G=null, gen=0, winSeq=0, menuOpen=false, rulesOpen=false, quitArm=false, freshTop=false;
 const later=(fn,ms)=>{const g=gen;setTimeout(()=>{if(G&&g===gen)fn()},ms)};
 
@@ -425,7 +396,7 @@ function startTurn(){
   if(p.cpu){
     if(multi())G.revealed=-1;
     G.phase='play';
-    const id=G.turnId;later(()=>{if(G.turnId===id)cpuTurn()},SPEED[S.speed]*(.75+Math.random()*.6));
+    const id=G.turnId;later(()=>{if(G.turnId===id)cpuTurn()},SPEED[S.speed]);
   }else if(multi()&&G.revealed!==G.turn){G.revealed=-1;G.phase='cover'}
   else G.phase='play';
   render();
@@ -602,10 +573,24 @@ function endRound(r){
 }
 
 /* ---------- online ---------- */
-const netSend=o=>{if(net&&net.ws&&net.ws.readyState===1)net.ws.send(JSON.stringify(o))};
+const netSend=o=>{if(!net)return;if(net.fb)net.fb.send(o);else if(net.ws&&net.ws.readyState===1)net.ws.send(JSON.stringify(o))};
 const netSaved=()=>{try{return JSON.parse(sessionStorage.getItem('dobon-net'))}catch(e){return null}};
-function netOpen(room,keep){
-  netClose(keep);
+async function netOpen(room,keep){
+  netClose(keep);netErr='';
+  const mine={ws:null,fb:null,room:'',lobby:null,msg:'接続中…',retry:0};net=mine;render();
+  const fb=await window.FBReady;
+  if(net!==mine)return;
+  if(fb){
+    mine.msg='';
+    mine.fb=fb.open(m=>netMsg(mine,m));
+    const r=await mine.fb.enter(room,(S.netName||'').trim()||'名無し');
+    if(net!==mine)return;
+    if(!r&&!mine.room){netClose();render()}
+    return;
+  }
+  netOpenWS(room,keep);
+}
+function netOpenWS(room,keep){
   const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
   const me={ws,room:'',lobby:null,msg:'接続中…',retry:0};net=me;
   ws.onopen=()=>{const sv=netSaved();me.msg='';netSend({t:'join',name:(S.netName||'').trim()||'名無し',room,token:sv&&sv.room===room?sv.token:undefined});render()};
@@ -618,7 +603,7 @@ function netOpen(room,keep){
   };
   render();
 }
-function netClose(keep){const n=net;net=null;if(n&&n.ws){try{n.ws.onclose=null;n.ws.close()}catch(e){}}if(!keep){G=null;try{sessionStorage.removeItem('dobon-net')}catch(e){}}}
+function netClose(keep){const n=net;net=null;if(n&&n.fb){try{n.fb.close(!keep)}catch(e){}}if(n&&n.ws){try{n.ws.onclose=null;n.ws.close()}catch(e){}}if(!keep){G=null;try{sessionStorage.removeItem('dobon-net')}catch(e){}}}
 function netMsg(me,m){
   if(net!==me)return;
   switch(m.t){
@@ -637,129 +622,9 @@ function netMsg(me,m){
     case 'flash':flash(m.text,m.sub);break;
     case 'err':
       toast(m.msg,'bad');
-      if(!me.room){me.msg=m.msg;netClose();render()}
+      if(!me.room){netErr=m.msg;netClose();render()}
       break;
   }
-}
-
-/* ---------- presence: sound, card flights, thinking ---------- */
-let AC=null,master=null,nbuf=null;
-function audio(){
-  if(!S.sound)return null;
-  try{
-    if(!AC){
-      AC=new (window.AudioContext||window.webkitAudioContext)();
-      const comp=AC.createDynamicsCompressor();master=AC.createGain();master.gain.value=.55;
-      master.connect(comp);comp.connect(AC.destination);
-    }
-    if(AC.state==='suspended')AC.resume();
-    return AC;
-  }catch(e){return null}
-}
-function noiseBuf(ac){
-  if(!nbuf){nbuf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=nbuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
-  return nbuf;
-}
-function envl(g,t,a,d,peak){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d)}
-function nz(ac,t,dur,o){
-  const s=ac.createBufferSource();s.buffer=noiseBuf(ac);s.loop=true;
-  const f=ac.createBiquadFilter();f.type=o.type||'bandpass';f.frequency.setValueAtTime(o.f,t);if(o.f2)f.frequency.exponentialRampToValueAtTime(o.f2,t+dur);f.Q.value=o.q||1;
-  const g=ac.createGain();envl(g,t,o.a||.005,dur-(o.a||.005),o.peak);
-  s.connect(f);f.connect(g);g.connect(master);s.start(t,Math.random()*.5);s.stop(t+dur+.05);
-}
-function tn(ac,t,f,f2,dur,peak,type,a){
-  const o=ac.createOscillator();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);
-  const g=ac.createGain();envl(g,t,a||.004,dur-(a||.004),peak);
-  o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+.05);
-}
-/* All sounds are synthesized (no audio files): soft paper noise for slides, a muffled thump for cards landing on felt. */
-const SND={
-  slide(v=1){const ac=audio();if(!ac)return;const t=ac.currentTime,r=.9+Math.random()*.2;nz(ac,t,.17,{f:900*r,f2:3300*r,q:.8,peak:.15*v,a:.03})},
-  place(v=1){const ac=audio();if(!ac)return;const t=ac.currentTime,r=.92+Math.random()*.16;
-    tn(ac,t,170*r,70,.13,.45*v);nz(ac,t,.06,{type:'lowpass',f:2400,q:.5,peak:.2*v,a:.002});nz(ac,t,.03,{f:3800*r,q:1.2,peak:.07*v,a:.001})},
-  turn(){const ac=audio();if(!ac)return;const t=ac.currentTime;tn(ac,t,659,0,.55,.04,'sine',.01);tn(ac,t+.1,988,0,.7,.03,'sine',.01)},
-  dobon(){const ac=audio();if(!ac)return;const t=ac.currentTime;
-    tn(ac,t,64,36,1.1,.8);tn(ac,t,128,72,.6,.3,'triangle');nz(ac,t,.9,{type:'lowpass',f:520,f2:80,peak:.45,a:.01});nz(ac,t,.22,{f:1700,q:.6,peak:.14,a:.002})}
-};
-
-const REDUCE=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-let snap=null;
-const rectOf=el=>{const r=el.getBoundingClientRect();return {cx:r.left+r.width/2,cy:r.top+r.height/2,w:el.offsetWidth||r.width,h:el.offsetHeight||r.height}};
-function snapshot(){
-  const root=document.getElementById('game'),vw=viewer(),me=vw>=0?G.players[vw]:null,top=G.pile[G.pile.length-1];
-  const hand=new Map();root.querySelectorAll('.hand .card[data-id]').forEach(el=>hand.set(+el.dataset.id,rectOf(el)));
-  const dk=root.querySelector('.deck .card');
-  return {round:G.round,pileLen:G.pile.length,topId:top.id,counts:G.players.map(p=>p.hand.length),mine:new Set(me?me.hand.map(c=>c.id):[]),
-    hand,seats:[...root.querySelectorAll('.seat')].map(rectOf),deck:dk?rectOf(dk):null,myTurn:vw>=0&&vw===G.turn&&G.phase==='play'};
-}
-function ghostLayer(){let l=document.getElementById('fxl');if(!l){l=document.createElement('div');l.id='fxl';document.body.appendChild(l)}return l}
-const SPD={slow:1.25,normal:1,fast:.75};
-/* One card travelling from `from` to `to` on a lifted arc. The real target stays hidden until the ghost lands. */
-function fly(o){
-  const from=o.from,k=SPD[S.speed]||1,dur=(o.dur||460)*k,delay=o.delay||0;
-  const to=o.mini?{cx:o.to.cx,cy:o.to.cy,w:Math.round(from.w*.42),h:Math.round(from.w*.42*1.4444)}:o.to;
-  const tx=to.cx-to.w/2,ty=to.cy-to.h/2,fw=o.fromScale!=null?o.fromScale*to.w:from.w,fs=fw/to.w;
-  const fx=from.cx-to.w/2,fy=from.cy-to.h/2,dist=Math.hypot(tx-fx,ty-fy),lift=Math.min(70,dist*.16);
-  const g=document.createElement('div');g.className='ghost';
-  g.style.cssText=`--cw:${to.w}px;width:${to.w}px;height:${to.h}px`;
-  g.innerHTML=`<div class="gc"><div class="gf">${cardHTML(o.card)}</div><div class="gb">${cardHTML({back:true})}</div></div>`;
-  ghostLayer().appendChild(g);
-  const r0=o.r0!=null?o.r0:(Math.random()*16-8),r1=o.tilt||0;
-  const sh=(y,b,a)=>`drop-shadow(0 ${y}px ${b}px rgba(0,0,0,${a}))`;
-  const kf=[
-    {transform:`translate(${fx}px,${fy}px) scale(${fs}) rotate(${r0}deg)`,filter:sh(3,5,.35)},
-    {transform:`translate(${(fx+tx)/2}px,${(fy+ty)/2-lift}px) scale(${Math.max(1,(fs+1)/2)*1.07}) rotate(${(r0+r1)/2}deg)`,filter:sh(26,18,.26),offset:.5},
-    {transform:`translate(${tx}px,${ty}px) scale(1) rotate(${r1}deg)`,filter:sh(4,8,.4)}
-  ];
-  const opts={duration:dur,delay,easing:'cubic-bezier(.25,.65,.3,1)',fill:'both'};
-  if(o.flip)g.querySelector('.gc').animate([{transform:'perspective(900px) rotateY(180deg)'},{transform:'perspective(900px) rotateY(0deg)',offset:.72},{transform:'perspective(900px) rotateY(0deg)'}],{...opts,easing:'cubic-bezier(.3,0,.2,1)'});
-  const a=g.animate(kf,opts);
-  if(o.hide)o.hide.style.visibility='hidden';
-  if(S.sound)setTimeout(()=>SND.slide(o.vol||1),delay);
-  a.onfinish=()=>{
-    g.remove();
-    if(o.hide){o.hide.style.visibility='';if(o.hide.isConnected&&o.settle)o.hide.animate([{transform:`rotate(${r1}deg) scale(1.035)`},{transform:`rotate(${r1}deg) scale(1)`}],{duration:170,easing:'ease-out'})}
-    if(o.seat&&o.seat.isConnected){o.seat.classList.add('bump');setTimeout(()=>o.seat&&o.seat.classList.remove('bump'),420)}
-    if(o.sound!==false)SND.place(o.vol||1);
-  };
-  a.oncancel=()=>{g.remove();if(o.hide)o.hide.style.visibility=''};
-}
-function presence(){
-  const root=document.getElementById('game'),nw=snapshot(),o=snap;snap=nw;
-  if(S.sound&&o&&!o.myTurn&&nw.myTurn)SND.turn();
-  if(REDUCE)return;
-  const vw=viewer(),top=G.pile[G.pile.length-1];
-  const seats=[...root.querySelectorAll('.seat')],topEl=root.querySelector('.pile .topc'),deck=nw.deck;
-  const fresh=!o||o.round!==nw.round||(nw.pileLen===1&&o.pileLen>1&&nw.counts.every(c=>c===nw.counts[0]));
-  if(fresh){
-    if(nw.pileLen!==1||!deck)return;
-    const n=G.players.length,per=nw.counts[0],mine=[...root.querySelectorAll('.hand .card[data-id]')];
-    let j=0;
-    for(let r=0;r<per;r++)for(let p=0;p<n;p++){
-      const delay=j*55;j++;
-      if(p===vw){const el=mine[r];if(el)fly({from:deck,to:rectOf(el),card:G.players[vw].hand.find(c=>c.id===+el.dataset.id)||{back:true},flip:true,hide:el,delay,tilt:0,vol:.5,sound:false});}
-      else fly({from:deck,to:nw.seats[p],card:{back:true},fromScale:null,delay,dur:380,vol:.4,sound:false,seat:seats[p],r0:0,tilt:0,mini:true});
-    }
-    if(topEl)fly({from:deck,to:rectOf(topEl),card:top,flip:true,hide:topEl,delay:j*55+80,tilt:3,settle:true});
-    return;
-  }
-  if(nw.pileLen>o.pileLen&&top&&top.by>=0){
-    const mineSrc=o.hand.get(top.id);
-    if(topEl)fly({from:mineSrc||o.seats[top.by]||nw.seats[top.by]||deck,to:rectOf(topEl),card:top,flip:!mineSrc,fromScale:mineSrc?null:.34,hide:topEl,tilt:3,settle:true,seat:mineSrc?null:seats[top.by]});
-  }
-  G.players.forEach((p,i)=>{
-    const d=nw.counts[i]-o.counts[i];if(d<=0)return;
-    const n=Math.min(d,4);
-    if(i===vw){
-      const ids=[...nw.mine].filter(id=>!o.mine.has(id)).slice(0,n);
-      ids.forEach((id,k)=>{
-        const el=root.querySelector(`.hand .card[data-id="${id}"]`);
-        if(el&&deck)fly({from:deck,to:rectOf(el),card:G.players[vw].hand.find(c=>c.id===id),flip:true,hide:el,delay:k*110,tilt:0});
-      });
-    }else if(deck){
-      for(let k=0;k<n;k++)fly({from:deck,to:nw.seats[i],card:{back:true},delay:k*110,dur:420,seat:seats[i],r0:0,tilt:0,mini:true,vol:.6});
-    }
-  });
 }
 
 /* ---------- UI helpers ---------- */
@@ -769,8 +634,6 @@ function toast(t,cls=''){
   setTimeout(()=>el.remove(),2800);
 }
 function flash(t,sub){
-  SND.dobon();
-  const gm=document.getElementById('game');gm.classList.remove('impact');void gm.offsetWidth;gm.classList.add('impact');
   const f=document.getElementById('flash');
   f.innerHTML=`<div class="dimm"></div><div class="fl"></div><div class="ring"></div><div class="stamp">${esc(t)}<small>${esc(sub)}</small></div>`;
   clearTimeout(flash.t);flash.t=setTimeout(()=>f.innerHTML='',1400);
@@ -808,7 +671,6 @@ function sortHand(h){
 
 /* ---------- render ---------- */
 function render(){
-  if(!G)snap=null;
   document.getElementById('setup').hidden=!!G;
   document.getElementById('game').hidden=!G;
   if(!G)renderSetup();else renderGame();
@@ -840,7 +702,7 @@ function onlineSection(){
     <div class="startrow"><button class="btn" data-act="netcreate">部屋をつくる</button>
     <input id="on-room" value="${esc(q.toUpperCase().slice(0,4))}" placeholder="部屋コード" maxlength="4" aria-label="部屋コード" style="width:7em;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--ink);font:inherit;text-transform:uppercase">
     <button class="btn" data-act="netjoin">参加</button></div>
-    <p class="netmsg">${esc(net&&net.msg||'')}</p></section>`;
+    <p class="netmsg">${esc(netErr||net&&net.msg||'')}</p></section>`;
 }
 function renderSetup(){
   const el=document.getElementById('setup');
@@ -873,7 +735,6 @@ function renderSetup(){
       <label class="opt">ジョーカー<select id="o-jokers">${[0,1,2].map(v=>`<option value="${v}" ${S.jokers===v?'selected':''}>${v}枚</option>`).join('')}</select></label>
       <label class="opt">CPUの速さ<select id="o-speed">${[['slow','ゆっくり'],['normal','ふつう'],['fast','はやい']].map(([v,t])=>`<option value="${v}" ${S.speed===v?'selected':''}>${t}</option>`).join('')}</select></label>
     </div>
-    <label class="check"><input type="checkbox" id="o-sound" ${S.sound?'checked':''}>効果音を鳴らす（カードの音・ドボンの音）</label>
     <label class="check"><input type="checkbox" id="o-drawplay" ${S.drawPlay?'checked':''}>引いたカードが出せるなら、そのまま出してよい</label>
   </section>
   <div class="startrow"><button class="btn" data-act="rules">ルール</button><button class="btn primary" data-act="start">対戦スタート</button></div>
@@ -915,8 +776,8 @@ function renderGame(){
     :hs.map(i=>`<button class="dobon sm" data-act="dobon" data-i="${i}">ドボン<small>${esc(G.players[i].name)}</small></button>`).join('');
 
   el.innerHTML=`
-  <div class="top"><div class="logo">ドボン<span>！</span></div><div class="round"><span class="rl">${G.R.name}ルール ・ </span>第${G.round}/${total}ゲーム</div><div class="sp"></div><button data-act="snd" aria-pressed="${!!S.sound}">音 ${S.sound?'入':'切'}</button><button data-act="rules">ルール</button><button data-act="menu">メニュー</button></div>
-  <div class="seats">${G.players.map((p,i)=>`<div class="seat ${i===G.turn?'on':''} ${i===G.turn&&i!==vw&&G.phase==='play'?'think':''}"><div class="sn"><span class="nmx">${esc(p.name)}</span>${i===vw&&p.name!=='あなた'?'<em>あなた</em>':''}${i===G.turn&&i!==vw&&G.phase==='play'?'<em class="th">考え中<b>.</b><b>.</b><b>.</b></em>':''}</div><div class="sc"><span class="mbs">${'<i class="mb"></i>'.repeat(Math.min(p.hand.length,7))}</span><b>×${p.hand.length}</b></div><div class="ss">累計 <b>${p.score}</b>点</div></div>`).join('')}</div>
+  <div class="top"><div class="logo">ドボン<span>！</span></div><div class="round"><span class="rl">${G.R.name}ルール ・ </span>第${G.round}/${total}ゲーム</div><div class="sp"></div><button data-act="rules">ルール</button><button data-act="menu">メニュー</button></div>
+  <div class="seats">${G.players.map((p,i)=>`<div class="seat ${i===G.turn?'on':''}"><div class="sn"><span class="nmx">${esc(p.name)}</span>${i===vw&&p.name!=='あなた'?'<em>あなた</em>':''}</div><div class="sc"><span class="mbs">${'<i class="mb"></i>'.repeat(Math.min(p.hand.length,7))}</span><b>×${p.hand.length}</b></div><div class="ss">累計 <b>${p.score}</b>点</div></div>`).join('')}</div>
   <div class="table">
     <button class="deck ${myTurn?'can':''}" data-act="draw" ${myTurn?'':'disabled'} aria-label="山札（${G.deck.length}枚）">${cardHTML({back:true})}<span>山札 ${G.deck.length}</span></button>
     <div class="pile">${prev?cardHTML(prev,'under'):''}${cardHTML(top,'topc'+(freshTop?' fresh':''))}</div>
@@ -938,7 +799,6 @@ function renderGame(){
   </div>`;
   freshTop=false;
   fitHand();
-  presence();
 }
 function fitHand(){
   const h=document.getElementById('hand');if(!h)return;
@@ -1039,7 +899,6 @@ function humanPlay(id){
   playCard(vw,id);
 }
 document.addEventListener('click',e=>{
-  if(S.sound)audio();
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   const a=b.dataset.act,i=+b.dataset.i;
   switch(a){
@@ -1050,7 +909,6 @@ document.addEventListener('click',e=>{
     case 'start':save();newMatch();break;
     case 'rules':rulesOpen=true;render();break;
     case 'closerules':rulesOpen=false;render();break;
-    case 'snd':S.sound=!S.sound;save();if(S.sound){audio();SND.place(.8)}render();break;
     case 'menu':menuOpen=true;quitArm=false;render();break;
     case 'closemenu':menuOpen=false;render();break;
     case 'quit':if(!quitArm){quitArm=true;render()}else{if(G.online){netSend({t:'leave'});netClose()}gen++;G=null;menuOpen=false;render()}break;
@@ -1102,13 +960,105 @@ document.addEventListener('change',e=>{
   else if(t.id==='o-jokers')S.jokers=+t.value;
   else if(t.id==='o-speed')S.speed=t.value;
   else if(t.id==='o-drawplay')S.drawPlay=t.checked;
-  else if(t.id==='o-sound')S.sound=t.checked;
   else return;
   save();
 });
 window.addEventListener('resize',fitHand);
 render();
-if(ONLINE_OK){const sv=netSaved();if(sv&&sv.room)netOpen(sv.room,true)}
+if(ONLINE_OK){window.FBReady.then(fb=>{
+  if(fb){let r=null;try{r=localStorage.getItem('dobon-fb-room')}catch(e){}if(r&&/^[A-Z0-9]{4}$/.test(r)&&(S.netName||'').trim())netOpen(r,true)}
+  else{const sv=netSaved();if(sv&&sv.room)netOpen(sv.room,true)}
+})}
+})();
+</script>
+
+<script type="module">
+/* Firebase 版の通信層。/__/firebase/init.json（Firebase Hosting が配る設定）が無い環境では null を返し、WebSocket 版にフォールバックする */
+const V='11.10.0',G='https://www.gstatic.com/firebasejs/'+V+'/';
+(async()=>{
+  try{
+    const r=await fetch('/__/firebase/init.json',{cache:'no-store'});
+    if(!r.ok||!/json/.test(r.headers.get('content-type')||''))return window.__fbResolve(null);
+    const cfg=await r.json();
+    const [A,Au,Fs,Fn]=await Promise.all([import(G+'firebase-app.js'),import(G+'firebase-auth.js'),import(G+'firebase-firestore.js'),import(G+'firebase-functions.js')]);
+    const app=A.initializeApp(cfg),auth=Au.getAuth(app),db=Fs.getFirestore(app);
+    await Au.signInAnonymously(auth);
+    const uid=auth.currentUser.uid;
+    const act=Fn.httpsCallable(Fn.getFunctions(app,'asia-northeast1'),'act');
+    window.__fbResolve({open:hooks=>{
+      const emit=hooks;let code=null,room=null,hand=null,pub=null,recvAt=0,lastEv=-1,tickT=0,closed=false,unsubs=[];
+      const call=async data=>{
+        try{return (await act({...data,room:code})).data}
+        catch(e){if(!closed)emit({t:'err',msg:(e&&e.message&&!/^internal$/.test(e.message))?e.message:'通信エラーが起きました'});return null}
+      };
+      const view=()=>{
+        const me=room.seats.findIndex(s=>s.uid===uid);
+        return {me,mode:pub.mode,R:pub.R,round:pub.round,total:pub.total,
+          players:pub.players.map((p,i)=>({name:p.name,cpu:p.cpu,score:p.score,hand:i===me?hand.cards:Array.from({length:p.count},()=>({back:true}))})),
+          deck:pub.deck,pile:pub.pile,eff:pub.eff,dir:pub.dir,pending:pub.pending,forced:pub.forced,drew:pub.drew,drawnId:pub.drawnId,
+          turn:pub.turn,phase:pub.phase,log:pub.log,dobon:pub.dobon,result:pub.result,host:room.seats.findIndex(s=>s.uid===room.hostUid)};
+      };
+      const doTick=async()=>{
+        if(closed)return;
+        const r=await call({t:'tick'});
+        if(r&&!r.ok&&r.retryMs!=null)tickT=setTimeout(doTick,r.retryMs+50+Math.random()*300);
+      };
+      const handle=()=>{
+        if(closed||!room)return;
+        clearTimeout(tickT);
+        const me=room.seats.findIndex(s=>s.uid===uid);
+        if(me<0){emit({t:'err',msg:'この部屋から外れました'});return}
+        if(room.status==='lobby'){
+          emit({t:'lobby',room:code,S:room.S,canStart:room.seats.length>=2,members:room.seats.map(s=>({name:s.name,cpu:s.cpu,host:s.uid===room.hostUid,away:false,me:s.uid===uid}))});
+          return;
+        }
+        if(!room.pub||!hand||hand.v!==room.v)return;      // 手札と盤面が同じ版になるまで待つ
+        pub=JSON.parse(room.pub);recvAt=Date.now();
+        const v=view();
+        const evs=pub.events||[];
+        if(lastEv<0)lastEv=evs.length?evs[evs.length-1].id:0;
+        emit({t:'state',view:v});
+        for(const e of evs){
+          if(e.id<=lastEv)continue;
+          if(e.to!=null&&e.to!==me)continue;
+          emit(e.flash?{t:'flash',text:e.text,sub:e.sub}:{t:'toast',text:e.text,cls:e.cls});
+        }
+        if(evs.length)lastEv=Math.max(lastEv,evs[evs.length-1].id);
+        if(pub.nextAt!=null){
+          const d=Math.max(0,pub.nextAt-pub.now-(Date.now()-recvAt))+30+Math.random()*500;
+          tickT=setTimeout(doTick,d);
+        }
+      };
+      const subscribe=()=>{
+        unsubs.push(Fs.onSnapshot(Fs.doc(db,'rooms',code),s=>{
+          if(!s.exists()){emit({t:'err',msg:'部屋がなくなりました'});return}
+          room=s.data();handle();
+        },()=>emit({t:'err',msg:'接続が切れました'})));
+        unsubs.push(Fs.onSnapshot(Fs.doc(db,'rooms',code,'hands',uid),s=>{
+          hand=s.exists()?{v:s.data().v,cards:JSON.parse(s.data().cards)}:null;handle();
+        }));
+      };
+      return {
+        async enter(roomCode,name){
+          const r=await (async()=>{
+            try{return (await act(roomCode?{t:'join',room:roomCode,name}:{t:'create',name})).data}
+            catch(e){emit({t:'err',msg:(e&&e.message&&!/^internal$/.test(e.message))?e.message:'通信エラーが起きました'});return null}
+          })();
+          if(!r||!r.room)return false;
+          code=r.room;
+          try{localStorage.setItem('dobon-fb-room',code)}catch(e){}
+          emit({t:'hello',room:code});
+          subscribe();
+          return true;
+        },
+        send(o){return call(o)},
+        close(forget){
+          closed=true;clearTimeout(tickT);unsubs.forEach(u=>u());unsubs=[];
+          if(forget)try{localStorage.removeItem('dobon-fb-room')}catch(e){}
+        }
+      };
+    }});
+  }catch(e){console.warn('firebase unavailable',e);window.__fbResolve(null)}
 })();
 </script>
 
