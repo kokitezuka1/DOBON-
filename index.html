@@ -328,6 +328,23 @@ body{background:radial-gradient(52% 44% at 50% 46%,rgba(255,226,160,.11),transpa
 .ghost .gb{transform:rotateY(180deg)}
 .ghost .card{position:absolute;left:0;top:0;box-shadow:inset 0 0 0 .07em rgba(40,30,10,.14),inset 0 .14em .22em rgba(255,255,255,.95)}
 .ghost .card.back{box-shadow:inset 0 0 0 .5em var(--card),inset 0 0 0 .62em rgba(0,0,0,.22)}
+
+/* ---------- Seats: each hand shown as real card backs ---------- */
+.seat{--mc:22px;--av:62px}
+@media (min-width:720px){.seat{--mc:30px;--av:150px}}
+.seat .hf{display:flex;align-items:flex-end;height:calc(var(--mc)*1.4444 + 4px);padding-top:2px}
+.seat .hf .card{--cw:var(--mc);flex:none;margin-left:calc(min(var(--mc)*.72,(var(--av) - var(--mc)) / max(var(--n) - 1,1)) - var(--mc));rotate:calc((var(--i) - (var(--n) - 1)/2)*2.2deg);transform-origin:50% 130%;box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.18)}
+.seat .hf .card:first-child{margin-left:0}
+.seat .hf .card.back{box-shadow:inset 0 0 0 .45em var(--card),inset 0 0 0 .58em rgba(0,0,0,.22),0 1px 2px rgba(0,0,0,.5)}
+.seat .ss{font-size:11.5px}
+.seat .ss b:first-child{font-size:13px}
+.seat.bump .hf{animation:bump .4s ease-out}
+.seat.think .hf .card{animation:sway 2.2s ease-in-out infinite}
+.seat.think .hf .card:nth-child(2n){animation-delay:.35s}
+.seat.think .hf .card:nth-child(4){animation:peek 2.6s ease-in-out infinite}
+.seat .ss{display:flex;justify-content:space-between;gap:6px}
+@media (max-width:520px){.seat .ss .lbl{display:none}}
+@media (max-width:520px){.top button{padding:7px 9px}.top .gm{display:none}}
 </style>
 </head>
 <body>
@@ -690,7 +707,7 @@ function snapshot(){
   const hand=new Map();root.querySelectorAll('.hand .card[data-id]').forEach(el=>hand.set(+el.dataset.id,rectOf(el)));
   const dk=root.querySelector('.deck .card');
   return {round:G.round,pileLen:G.pile.length,topId:top.id,counts:G.players.map(p=>p.hand.length),mine:new Set(me?me.hand.map(c=>c.id):[]),
-    hand,seats:[...root.querySelectorAll('.seat')].map(rectOf),deck:dk?rectOf(dk):null,myTurn:vw>=0&&vw===G.turn&&G.phase==='play'};
+    hand,seats:[...root.querySelectorAll('.seat .hf')].map(rectOf),deck:dk?rectOf(dk):null,myTurn:vw>=0&&vw===G.turn&&G.phase==='play'};
 }
 function ghostLayer(){let l=document.getElementById('fxl');if(!l){l=document.createElement('div');l.id='fxl';document.body.appendChild(l)}return l}
 const SPD={slow:1.25,normal:1,fast:.75};
@@ -738,14 +755,14 @@ function presence(){
     for(let r=0;r<per;r++)for(let p=0;p<n;p++){
       const delay=j*55;j++;
       if(p===vw){const el=mine[r];if(el)fly({from:deck,to:rectOf(el),card:G.players[vw].hand.find(c=>c.id===+el.dataset.id)||{back:true},flip:true,hide:el,delay,tilt:0,vol:.5,sound:false});}
-      else fly({from:deck,to:nw.seats[p],card:{back:true},fromScale:null,delay,dur:380,vol:.4,sound:false,seat:seats[p],r0:0,tilt:0,mini:true});
+      else{const el=seats[p]&&seats[p].querySelectorAll('.hf .card')[r];if(el)fly({from:deck,to:rectOf(el),card:{back:true},hide:el,delay,dur:380,vol:.4,sound:false,r0:0,tilt:0})}
     }
     if(topEl)fly({from:deck,to:rectOf(topEl),card:top,flip:true,hide:topEl,delay:j*55+80,tilt:3,settle:true});
     return;
   }
   if(nw.pileLen>o.pileLen&&top&&top.by>=0){
     const mineSrc=o.hand.get(top.id);
-    if(topEl)fly({from:mineSrc||o.seats[top.by]||nw.seats[top.by]||deck,to:rectOf(topEl),card:top,flip:!mineSrc,fromScale:mineSrc?null:.34,hide:topEl,tilt:3,settle:true,seat:mineSrc?null:seats[top.by]});
+    if(topEl)fly({from:mineSrc||o.seats[top.by]||nw.seats[top.by]||deck,to:rectOf(topEl),card:top,flip:!mineSrc,fromScale:mineSrc?null:.3,hide:topEl,tilt:3,settle:true,seat:mineSrc?null:seats[top.by]});
   }
   G.players.forEach((p,i)=>{
     const d=nw.counts[i]-o.counts[i];if(d<=0)return;
@@ -757,7 +774,8 @@ function presence(){
         if(el&&deck)fly({from:deck,to:rectOf(el),card:G.players[vw].hand.find(c=>c.id===id),flip:true,hide:el,delay:k*110,tilt:0});
       });
     }else if(deck){
-      for(let k=0;k<n;k++)fly({from:deck,to:nw.seats[i],card:{back:true},delay:k*110,dur:420,seat:seats[i],r0:0,tilt:0,mini:true,vol:.6});
+      const cs=seats[i]?[...seats[i].querySelectorAll('.hf .card')]:[];
+      for(let k=0;k<n;k++){const el=cs[cs.length-1-k];if(el)fly({from:deck,to:rectOf(el),card:{back:true},hide:el,delay:k*110,dur:420,seat:seats[i],r0:0,tilt:0,vol:.6})}
     }
   });
 }
@@ -915,8 +933,8 @@ function renderGame(){
     :hs.map(i=>`<button class="dobon sm" data-act="dobon" data-i="${i}">ドボン<small>${esc(G.players[i].name)}</small></button>`).join('');
 
   el.innerHTML=`
-  <div class="top"><div class="logo">ドボン<span>！</span></div><div class="round"><span class="rl">${G.R.name}ルール ・ </span>第${G.round}/${total}ゲーム</div><div class="sp"></div><button data-act="snd" aria-pressed="${!!S.sound}">音 ${S.sound?'入':'切'}</button><button data-act="rules">ルール</button><button data-act="menu">メニュー</button></div>
-  <div class="seats">${G.players.map((p,i)=>`<div class="seat ${i===G.turn?'on':''} ${i===G.turn&&i!==vw&&G.phase==='play'?'think':''}"><div class="sn"><span class="nmx">${esc(p.name)}</span>${i===vw&&p.name!=='あなた'?'<em>あなた</em>':''}${i===G.turn&&i!==vw&&G.phase==='play'?'<em class="th">考え中<b>.</b><b>.</b><b>.</b></em>':''}</div><div class="sc"><span class="mbs">${'<i class="mb"></i>'.repeat(Math.min(p.hand.length,7))}</span><b>×${p.hand.length}</b></div><div class="ss">累計 <b>${p.score}</b>点</div></div>`).join('')}</div>
+  <div class="top"><div class="logo">ドボン<span>！</span></div><div class="round"><span class="rl">${G.R.name}ルール ・ </span>第${G.round}/${total}<span class="gm">ゲーム</span></div><div class="sp"></div><button data-act="snd" aria-pressed="${!!S.sound}">音 ${S.sound?'入':'切'}</button><button data-act="rules">ルール</button><button data-act="menu">メニュー</button></div>
+  <div class="seats">${G.players.map((p,i)=>`<div class="seat ${i===G.turn?'on':''} ${i===G.turn&&i!==vw&&G.phase==='play'?'think':''}"><div class="sn"><span class="nmx">${esc(p.name)}</span>${i===vw&&p.name!=='あなた'?'<em>あなた</em>':''}${i===G.turn&&i!==vw&&G.phase==='play'?'<em class="th">考え中<b>.</b><b>.</b><b>.</b></em>':''}</div><div class="hf" style="--n:${Math.min(p.hand.length,20)}" aria-label="手札${p.hand.length}枚">${Array.from({length:Math.min(p.hand.length,20)},(_,k)=>cardHTML({back:true},'',`style="--i:${k}"`)).join('')}</div><div class="ss"><span><b>×${p.hand.length}</b>枚</span><span><span class="lbl">累計 </span><b>${p.score}</b>点</span></div></div>`).join('')}</div>
   <div class="table">
     <button class="deck ${myTurn?'can':''}" data-act="draw" ${myTurn?'':'disabled'} aria-label="山札（${G.deck.length}枚）">${cardHTML({back:true})}<span>山札 ${G.deck.length}</span></button>
     <div class="pile">${prev?cardHTML(prev,'under'):''}${cardHTML(top,'topc'+(freshTop?' fresh':''))}</div>
